@@ -82,7 +82,9 @@ check("\n[截圖 1.png](attachments/截圖 1.png)\n[規格.pdf](attachments/規�
 check(sorted(p.name for p in (tmp / "n2" / "attachments").iterdir()) == ["截圖 1.png", "規格.pdf"], "附件有複製過去")
 check("來源 資料夾" in warned[-1], "資料夾不收並提示")
 win.editor.flush(); win.update()
-check([l.cget("text") for l in win.sidebar._rows.values()] == ["會議", "想法", "big5"], "左欄三張")
+check([l.cget("text") for n, l in win.sidebar._rows.items() if n.day == today] == ["會議", "想法", "big5"], "左欄今天三張")
+from personalnote.storage import TODO_DAY
+check(next(iter(win.sidebar._groups)) == TODO_DAY, "待辦事項在左欄最上面")
 check("第" not in win.day_label.cget("text"), "上方不顯示第幾張")
 win.new_note(today); win.update()
 check(win.editor.title.get() == "筆記4", "新筆記預設標題「筆記4」")   # 標題欄拿到焦點時內文 FocusOut 會先存一次，所以不檢查 dirty

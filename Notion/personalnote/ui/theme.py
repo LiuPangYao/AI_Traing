@@ -71,6 +71,9 @@ def fmt_day(d, with_weekday: bool = True) -> str:
     """畫面上的日期：台灣習慣 2026/10/28（三）；英文版翻譯表裡寫成 2026/10/28 (Wed)。
     資料夾名稱另外用 ISO（2026-10-28）才好排序。"""
     from ..i18n import _
+    from ..storage import TODO_DAY
+    if d == TODO_DAY:
+        return _("待辦事項")
     s = f"{d.year}/{d.month:02d}/{d.day:02d}"
     return _("{0}（{1}）").format(s, _(WEEKDAY_ZH[d.weekday()])) if with_weekday else s
 

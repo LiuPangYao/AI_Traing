@@ -259,6 +259,9 @@ class Editor(ctk.CTkFrame):
         self._tip_target = None
         self.text.bind("<Configure>", lambda _e: self._schedule_refresh())  # 視窗變寬變窄，圖跟著縮放
         imefix.bind(self.text._textbox)        # 注音標點修正（見 imefix.py）
+        # 右鍵選單：剪下／複製／貼上／全選（貼上走 Ctrl+V 同一條路，剪貼簿是截圖也會變成圖）
+        self.text._textbox.bind("<Button-3>", lambda e: self._context_menu(e, self.text._textbox, is_body=True))
+        self.title._entry.bind("<Button-3>", lambda e: self._context_menu(e, self.title._entry, is_body=False))
 
         foot = ctk.CTkFrame(self, fg_color="transparent")
         foot.grid(row=3, column=0, sticky="ew", pady=(6, 0))            # 貼近視窗底邊一點（Peter 要的）
@@ -790,6 +793,56 @@ class Editor(ctk.CTkFrame):
         except Exception:
             pass
         self._schedule_refresh()
+
+    def _context_menu(self, e, widget, is_body: bool) -> str:
+        """右鍵選單。唯讀筆記只能複製、全選。"""
+        widget.focus_set()
+        try:
+            has_sel = bool(widget.selection_get())
+        except tk.TclError:
+            has_sel = False
+        if is_body and not has_sel:                  # 沒選字：游標移到點的地方，貼上才會貼在那裡
+            widget.mark_set("insert", f"@{e.x},{e.y}")
+        editable = not self.read_only
+        m = tk.Menu(widget, tearoff=0, font=(T.UI_FONT_FAMILY, 10))
+        m.add_command(label=_("剪下"), accelerator="Ctrl+X", state="normal" if (has_sel and editable) else "disabled",
+                      command=lambda: widget.event_generate("<<Cut>>"))
+        m.add_command(label=_("複製"), accelerator="Ctrl+C", state="normal" if has_sel else "disabled",
+                      command=lambda: widget.event_generate("<<Copy>>"))
+        m.add_command(label=_("貼上"), accelerator="Ctrl+V", state="normal" if editable else "disabled",
+                      command=lambda: self._menu_paste(widget, is_body))
+        m.add_separator()
+        m.add_command(label=_("全選"), accelerator="Ctrl+A", command=lambda: self._select_all(widget, is_body))
+        try:
+            m.tk_popup(e.x_root, e.y_root)
+        finally:
+            m.grab_release()
+        return "break"
+
+    def _menu_paste(self, widget, is_body: bool) -> None:
+        if is_body and self._on_paste() == "break":  # 剪貼簿是圖：已經存成附件插進去了
+            self._on_modified()
+            return
+        try:                                         # 一般文字：有選字就取代，貼在選取的位置（不是游標原本的位置）
+            first = widget.index("sel.first")
+            widget.delete("sel.first", "sel.last")
+            if is_body:
+                widget.mark_set("insert", first)
+            else:
+                widget.icursor(first)
+        except tk.TclError:
+            pass
+        widget.event_generate("<<Paste>>")
+        if not is_body:
+            self._on_title_changed()
+
+    @staticmethod
+    def _select_all(widget, is_body: bool) -> None:
+        if is_body:
+            widget.tag_add("sel", "1.0", "end-1c")
+        else:
+            widget.select_range(0, "end")
+            widget.icursor("end")
 
     def _on_paste(self, _e=None) -> Optional[str]:
         """Ctrl+V：剪貼簿是圖 → 交給主視窗存附件、拿回要插的那行；不是圖就照一般貼上。"""

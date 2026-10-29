@@ -81,3 +81,47 @@ class StoreQaTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OrderTest(unittest.TestCase):
+    def test_order_persists_and_new_notes_go_last(self):
+        with tempfile.TemporaryDirectory() as d:
+            st = NoteStore(Path(d), encrypt=False)
+            day = date(2026, 10, 29)
+            for i in (1, 2, 3):
+                st.save(NoteId(day, i), f"# n{i}\nx")
+            st.set_order(day, [3, 1, 2])
+            self.assertEqual([r.id.seq for r in st.list_notes(day)], [3, 1, 2])
+            st.save(NoteId(day, 4), "# n4\nx")                         # 新的一張接最後
+            self.assertEqual([r.id.seq for r in st.list_notes(day)], [3, 1, 2, 4])
+            st.delete(NoteId(day, 1))                                   # 刪掉的自動不見
+            again = NoteStore(Path(d), encrypt=False)                   # 重開還記得
+            self.assertEqual([r.id.seq for r in again.list_notes(day)], [3, 2, 4])
+            self.assertEqual(again.next_id(day).seq, 5)                 # 編號不受順序影響
+
+    def test_bad_order_file_ignored(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / ".app").mkdir()
+            (Path(d) / ".app" / "order.json").write_text("[1,2]", encoding="utf-8")
+            st = NoteStore(Path(d), encrypt=False)
+            st.save(NoteId(date(2026, 10, 29), 1), "a")
+            self.assertEqual(len(st.list_notes(date(2026, 10, 29))), 1)
+
+
+class TodoTest(unittest.TestCase):
+    def test_todo_is_single_and_on_top(self):
+        from personalnote.storage import TODO_DAY, TODO_ID, tomorrow
+        with tempfile.TemporaryDirectory() as d:
+            st = NoteStore(Path(d), encrypt=False)
+            st.save(NoteId(date(2026, 10, 29), 1), "# 今天\nx")
+            st.save(TODO_ID, "# 待辦\n- 買牛奶")
+            self.assertEqual(st.list_days()[0], TODO_DAY)                # 永遠最上面
+            src = Path(d) / "x.md"; src.write_text("匯入的", encoding="utf-8")
+            nid = st.import_file(src, TODO_DAY)                          # 已有一張 → 放到今天
+            self.assertNotEqual(nid.day, TODO_DAY)
+            self.assertEqual(len(st.list_notes(TODO_DAY)), 1)
+            st.delete(TODO_ID); st.save(TODO_ID, "# 新待辦\n")
+            back = st.restore_last_deleted()                              # 還原時待辦已有一張 → 放到今天
+            self.assertNotEqual(back.day, TODO_DAY)
+            self.assertEqual(len(st.list_notes(TODO_DAY)), 1)
+            self.assertEqual(tomorrow(TODO_DAY), date.today())            # 沒有「後一天」

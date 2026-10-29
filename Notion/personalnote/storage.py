@@ -55,6 +55,10 @@ class NoteId:
     seq: int
 
 
+TODO_DAY = date(9999, 12, 31)   # 待辦事項：不屬於任何日期，只有一張（TODO_ID）。資料夾 9999-12-31，日期排序永遠在最上面
+TODO_ID = NoteId(TODO_DAY, 1)
+
+
 @dataclass(frozen=True)
 class NoteRef:
     """清單用：不含全文，只有標題。"""
@@ -101,6 +105,7 @@ def title_of(text: str) -> str:
 
 FORMAT_VERSION = 1          # 存檔格式版本。規則見 README「升級規則」：只能加新的，不能改舊檔的意義
 FORMAT_FILE = "format.json"
+ORDER_FILE = "order.json"   # 左欄拖拉排過的順序：{"2026-10-29": [3, 1, 2]}；沒排過的天照編號。舊版程式不讀它也不會壞
 
 
 class NoteStore:
@@ -115,6 +120,7 @@ class NoteStore:
         self._text_cache: dict[Path, tuple[float, int, str]] = {}    # 檔 → (mtime, size, 全文)；搜尋內容不用每次解密
         self._index: Optional[dict[date, list[NoteRef]]] = None      # 日期 → 筆記清單；掃一次後只在自己寫入時更新
         self._index_sig: tuple = ()
+        self._order: dict[str, list[int]] = self._load_order()       # 每天的顯示順序（左欄長按拖拉排的）
         self._check_format()
         self._migrate_single_files()
         self._clean_tmp()
@@ -270,7 +276,38 @@ class NoteStore:
         if not d.is_dir():
             return []
         seqs = sorted({int(m[1]) for f in d.iterdir() if f.is_file() and (m := NOTE_FILE_RE.match(f.name))})
+        seqs = self._apply_order(day, seqs)
         return [NoteRef(nid, self._title_cached(nid)) for nid in (NoteId(day, s) for s in seqs)]
+
+    # ---- 顯示順序（左欄長按拖拉）----
+    def _load_order(self) -> dict[str, list[int]]:
+        import json
+        try:
+            data = json.loads((self.root / APP_SUBDIR / ORDER_FILE).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return {k: [int(x) for x in v if isinstance(x, int) or str(x).isdigit()]
+                for k, v in data.items() if isinstance(v, list)}
+
+    def _apply_order(self, day: date, seqs: list[int]) -> list[int]:
+        """排過的照排過的順序；沒排進去的（新的一張）接在後面、照編號。檔名和編號都不動。"""
+        order = self._order.get(day.isoformat())
+        if not order:
+            return seqs
+        have = set(seqs)
+        head = [s for s in order if s in have]
+        return head + [s for s in seqs if s not in set(head)]
+
+    def set_order(self, day: date, seqs: list[int]) -> None:
+        """左欄拖拉放開時呼叫：記住這一天的顯示順序（.app/order.json），更新索引。"""
+        import json
+        self._order[day.isoformat()] = [int(s) for s in seqs]
+        self._order = {k: v for k, v in self._order.items() if (self.root / k).is_dir()}   # 整天清掉的就不留
+        _atomic_write_bytes(self.root / APP_SUBDIR / ORDER_FILE,
+                            json.dumps(self._order, ensure_ascii=False, indent=1).encode("utf-8"))
+        self._touch(day)
 
     def _title_cached(self, nid: NoteId) -> str:
         """標題快取：檔案的 (mtime, size) 沒變就不重讀、不重解密。幾千張也不會每次重畫都解密一遍。"""
@@ -419,6 +456,8 @@ class NoteStore:
             day, seq = date.fromisoformat(day_s), int(seq_s)
         except (ValueError, IndexError):
             return None
+        if day == TODO_DAY and self.list_notes(TODO_DAY):
+            day = date.today()                   # 待辦事項只能有一張：已經有了，還原的放到今天
         if self.path_for(NoteId(day, seq)).is_file():
             seq = self.next_id(day).seq
         dest = self.day_dir(day) / f"{seq:03d}{p.suffix}"
@@ -500,6 +539,8 @@ class NoteStore:
         title, body = split_title(text)
         if not title and default_title:
             text = join_title(default_title, body)
+        if day == TODO_DAY and self.list_notes(TODO_DAY):
+            day = date.today()                   # 待辦事項只能有一張：已經有了，匯入的放到今天
         nid = self.next_id(day)
         self.save(nid, text)
         return nid
@@ -713,4 +754,6 @@ def yesterday(day: date) -> date:
 
 
 def tomorrow(day: date) -> date:
+    if day >= TODO_DAY - timedelta(days=1):      # 待辦事項（9999-12-31）沒有「後一天」
+        return date.today()
     return day + timedelta(days=1)

@@ -168,3 +168,11 @@ Notion.bat 裡的 NOTE_DIR 有設值，下次用 .bat 開會以它為準。\n,NO
 這張是唯讀的（解不開或較新版本），附件沒有插入；先開別張再拖。,"This note is read-only (cannot decrypt, or newer format); attachments were not inserted. Open another note and drop again.",这张是只读的（解不开或较新版本），附件没有插入；先打开别的笔记再拖。,このノートは読み取り専用のため添付は挿入されませんでした。別のノートを開いてからドロップしてください。,personalnote\ui\main_window.py:467
 （較新版本的格式）,(newer format),（较新版本的格式）,（新しい形式）,storage.NEWER_TITLE
 這張解不開或是空的，沒有東西可以複製。,This note cannot be decrypted or is empty; nothing to copy.,这张解不开或是空的，没有内容可以复制。,このノートは復号できないか空のため、コピーするものがありません。,personalnote\ui\main_window.py:341
+剪下,Cut,剪切,切り取り,personalnote\ui\editor.py:808
+複製,Copy,复制,コピー,personalnote\ui\editor.py:810
+貼上,Paste,粘贴,貼り付け,personalnote\ui\editor.py:812
+全選,Select all,全选,すべて選択,personalnote\ui\editor.py:815
+長按筆記列再拖,"Press and hold a note, then drag",长按笔记行再拖,ノートを長押ししてドラッグ,SettingsPanel.SHORTCUTS
+同一天裡上下調整順序（搜尋中不能排）,Reorder notes within the same day (not while searching),在同一天里上下调整顺序（搜索中不能排）,同じ日の中で順番を入れ替え（検索中は不可）,SettingsPanel.SHORTCUTS
+點這裡寫待辦,Click here to write your to-do list,点这里写待办,ここをクリックしてやることを書く,personalnote\ui\main_window.py:216
+待辦事項,To-do,待办事项,やること,personalnote\ui\theme.py:76

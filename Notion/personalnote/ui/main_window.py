@@ -27,7 +27,7 @@ from ..i18n import _
 from .. import APP_NAME, AUTHOR, __version__, applog, dropfiles, platform_, startup
 from ..config import Settings
 from ..state import AppState
-from ..storage import NoteId, NoteStore, title_of, tomorrow, yesterday
+from ..storage import TODO_DAY, TODO_ID, NoteId, NoteRef, NoteStore, title_of, tomorrow, yesterday
 from . import theme as T
 from .editor import Editor
 from .sidebar import Sidebar
@@ -63,7 +63,7 @@ class MainWindow(ctk.CTk):
             self.bind(seq, lambda _e: self.zoom(1))
         for seq in ("<Control-minus>", "<Control-KP_Subtract>"):
             self.bind(seq, lambda _e: self.zoom(-1))
-        self.bind("<Control-Prior>", lambda _e: self.go_day(yesterday(self.current_day)))
+        self.bind("<Control-Prior>", lambda _e: self.go_day(self._prev_day()))
         self.bind("<Control-Next>", lambda _e: self.go_day(tomorrow(self.current_day)))
         self.bind("<FocusIn>", self._on_focus_in)      # 回到視窗時看資料夾有沒有被別的程式動過
         self._last_focus_check = 0.0
@@ -85,7 +85,7 @@ class MainWindow(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.sidebar = Sidebar(self, on_select=self.open_note, on_add=self.new_note,
                                on_search=self._on_search, on_note_menu=self.note_menu,
-                               on_add_pick=self.new_note_pick)
+                               on_add_pick=self.new_note_pick, on_reorder=self.reorder_day)
         self.sidebar.grid(row=0, column=0, sticky="nsw")
         self.sidebar.set_width(self.state_.sidebar_width)
         if self._search_kw:                      # 換語言重畫時搜尋還在：框裡的字也要還原，不然清單被濾了卻看不出為什麼
@@ -150,7 +150,7 @@ class MainWindow(ctk.CTk):
         nav = ctk.CTkFrame(parent, fg_color="transparent")
         nav.grid(row=0, column=0, sticky="ew")
         nav.grid_columnconfigure(1, weight=1)
-        self._nav_prev = mk(nav, "prev", lambda: self.go_day(yesterday(self.current_day)), tip=_("前一天（Ctrl+PgUp）"))
+        self._nav_prev = mk(nav, "prev", lambda: self.go_day(self._prev_day()), tip=_("前一天（Ctrl+PgUp）"))
         self._nav_prev.grid(row=0, column=0)
         self.day_label = ctk.CTkLabel(nav, text="", font=T.ui_font(14, "bold"), text_color=T.TEXT)
         self.day_label.grid(row=0, column=1, sticky="ew")
@@ -202,6 +202,7 @@ class MainWindow(ctk.CTk):
     SEARCH_BUSY_MIN = 300        # 超過這麼多張時搜尋要讀每一張，給個「搜尋中…」
 
     def _refresh_sidebar(self) -> None:
+        self.sidebar.searching = bool(self._search_kw.strip())   # 搜尋結果是過濾過的，左欄不給拖拉排序
         if self._search_kw.strip() and self.store.count_notes() > self.SEARCH_BUSY_MIN:
             with self._busy(_("搜尋中")):
                 groups = self.store.search(self._search_kw)
@@ -211,9 +212,12 @@ class MainWindow(ctk.CTk):
             shown, hidden = self._cap(groups, self.SIDEBAR_SEARCH_MAX)
             self.sidebar.refresh(shown, self.current, hidden=hidden)
             return
+        # 待辦事項永遠在最上面（就算還沒寫也要有那一列可以點）；它不算在「最近幾天」裡
+        todo = groups.pop(TODO_DAY, None) or [NoteRef(TODO_ID, _("點這裡寫待辦"))]
         limit = self._sidebar_limit
         days = list(groups.keys())
-        shown = {d: groups[d] for d in days[:limit]}
+        shown = {TODO_DAY: todo}
+        shown.update({d: groups[d] for d in days[:limit]})
         if self.current and self.current.day in groups and self.current.day not in shown:
             shown[self.current.day] = groups[self.current.day]          # 正在看的那天一定要在
         shown, hidden = self._cap(shown, self.SIDEBAR_MAX_NOTES)
@@ -261,6 +265,9 @@ class MainWindow(ctk.CTk):
         day = self.state_.last_day_or_none() or date.today()
         self.go_day(day if self.store.list_notes(day) else date.today())
 
+    def _prev_day(self) -> date:
+        return date.today() if self.current_day == TODO_DAY else yesterday(self.current_day)   # 待辦事項的「前一天」＝今天
+
     def go_day(self, day: date) -> None:
         """跳到某一天：有筆記開第一張，沒有就給一張新的（不打字不會建檔）。"""
         refs = self.store.list_notes(day)
@@ -293,10 +300,19 @@ class MainWindow(ctk.CTk):
 
     def new_note(self, day: date) -> None:
         """按「新筆記」：開下一個編號，標題預設「筆記N」（N 跟編號一樣，背景記著、畫面不顯示），反白等你改。"""
+        if day == TODO_DAY:                      # 待辦事項只有一張：在它上面按「新筆記」就加到今天
+            day = date.today()
         self.editor.flush()
         nid = self.store.next_id(day)
         self.open_note(nid)
         self.editor.set_default_title(_("筆記{0}").format(nid.seq))
+
+    def reorder_day(self, day: date, seqs: list[int]) -> None:
+        """左欄長按拖拉放開：記住這一天的顯示順序（只改顯示，檔名與編號不動）。"""
+        self.editor.flush()
+        self.store.set_order(day, seqs)
+        applog.info("排序 %s → %s", day, seqs)
+        self._refresh_sidebar()
 
     def new_note_pick(self) -> None:
         """左下「額外新增」：跳月曆選一天，再在那天開新筆記（補以前的紀錄用）。"""
@@ -936,6 +952,7 @@ class SettingsPanel(ctk.CTkToplevel):
         ("行首 1. 或 - 後 Enter", "自動接下一項，空項再 Enter 結束"),
         ("筆記列按右鍵", "開啟、複製到今天、匯出、刪除、清整天"),
         ("拖檔案進視窗", ".md／.txt 匯成今天的筆記；其他檔變附件連結"),
+        ("長按筆記列再拖", "同一天裡上下調整順序（搜尋中不能排）"),
     )
 
     def _shortcut_table(self) -> None:
