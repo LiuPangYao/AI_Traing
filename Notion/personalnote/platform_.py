@@ -190,3 +190,23 @@ def autostart_disable() -> None:
 
 def autostart_enabled() -> bool:
     return autostart_path().is_file()
+
+
+def google_drive_dir():
+    """Google Drive 桌面版的同步資料夾（有裝才有）：Windows 是某個磁碟機的「My Drive」或家目錄下的 Google Drive；
+    Linux／macOS 常見是 ~/Google Drive。找不到回 None（呼叫端讓使用者自己選）。"""
+    from pathlib import Path
+    home = Path.home()
+    cands = [home / "Google Drive" / "My Drive", home / "Google Drive", home / "My Drive", home / "GoogleDrive"]
+    if IS_WIN:
+        import string
+        for letter in string.ascii_uppercase[6:]:            # G: 以後常是 Drive 的虛擬磁碟
+            cands.append(Path(f"{letter}:/My Drive"))
+            cands.append(Path(f"{letter}:/我的雲端硬碟"))
+    for c in cands:
+        try:
+            if c.is_dir():
+                return c
+        except OSError:
+            continue
+    return None

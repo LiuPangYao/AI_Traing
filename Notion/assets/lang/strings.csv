@@ -195,3 +195,19 @@ Ctrl+點 #標籤,Ctrl+click a #tag,Ctrl+点 #标签,Ctrl+クリック #タグ,Se
 剪下、複製、貼上、全選、複製成純文字（去掉記號）,"Cut, copy, paste, select all, copy as plain text (markup removed)",剪切、复制、粘贴、全选、复制为纯文本（去掉记号）,切り取り、コピー、貼り付け、すべて選択、プレーンテキストとしてコピー,SettingsPanel.SHORTCUTS
 日期列按右鍵,Right-click a date header,日期行按右键,日付行で右クリック,SettingsPanel.SHORTCUTS
 在這天新增、整天合成一個 .md 匯出、清整天,"New note on that day, export the whole day as one .md, clear the day",在这天新建、整天合成一个 .md 导出、清整天,その日に新規作成、1 日を 1 つの .md にエクスポート、その日を消去,SettingsPanel.SHORTCUTS
+舊版本…,Older versions…,旧版本…,以前のバージョン…,personalnote\ui\main_window.py:384
+用郵件寄出（開郵件程式）,Send by email (opens your mail app),用邮件发送（打开邮件程序）,メールで送る（メールアプリを開く）,personalnote\ui\main_window.py:386
+複製到 Google Drive 資料夾,Copy to the Google Drive folder,复制到 Google Drive 文件夹,Google Drive フォルダーにコピー,personalnote\ui\main_window.py:387
+分享,Share,分享,共有,personalnote\ui\main_window.py:388
+已還原舊版本,Older version restored,已还原旧版本,以前のバージョンに戻しました,personalnote\ui\main_window.py:411
+這張是空的或解不開，沒有東西可以分享。,This note is empty or cannot be decrypted; nothing to share.,这张是空的或解不开，没有东西可以分享。,このノートは空か復号できないため、共有するものがありません。,personalnote\ui\main_window.py:417
+筆記太長，郵件只帶了前面一段。完整的請用「匯出這張」存成檔案再附加。,"The note is long, so only the first part went into the email. For the full text use “Export this note” and attach the file.",笔记太长，邮件只带了前面一段。完整的请用“导出这张”存成文件再附加。,ノートが長いため、メールには冒頭のみ入れました。全文は「このノートをエクスポート」で保存して添付してください。,personalnote\ui\main_window.py:438
+找不到 Google Drive 資料夾，請自己選（或任何要同步的資料夾）,Google Drive folder not found; pick it yourself (or any folder that syncs),找不到 Google Drive 文件夹，请自己选（或任何要同步的文件夹）,Google Drive フォルダーが見つかりません。自分で選んでください（同期するフォルダーなら何でも可）,personalnote\ui\main_window.py:448
+已存到 {0},Saved to {0},已存到 {0},{0} に保存しました,personalnote\ui\main_window.py:455
+舊版本,Older versions,旧版本,以前のバージョン,personalnote\ui\versions.py:24
+{0} 的舊版本（{1} 份）,Older versions of {0} ({1}),{0} 的旧版本（{1} 份）,{0} の以前のバージョン（{1} 件）,personalnote\ui\versions.py:37
+這一版解不開：{0},This version cannot be decrypted: {0},这一版解不开：{0},このバージョンは復号できません：{0},personalnote\ui\versions.py:56
+還沒有舊版本。\n內容有變且隔 10 分鐘以上存檔時會自動留一份。,No older versions yet.\nOne is kept automatically when the content changes and at least 10 minutes have passed since the last one.,还没有旧版本。\n内容有变且隔 10 分钟以上存档时会自动留一份。,まだ以前のバージョンはありません。\n内容が変わり、前回から 10 分以上たって保存されると自動的に残ります。,personalnote\ui\versions.py:61
+還原會把現在的內容也留成一份舊版本，可以再還回來。,"Restoring also keeps the current content as an older version, so you can go back.",还原会把现在的内容也留成一份旧版本，可以再还回来。,戻す前に現在の内容も以前のバージョンとして残るので、再び戻せます。,personalnote\ui\versions.py:76
+還原這一版,Restore this version,还原这一版,このバージョンに戻す,personalnote\ui\versions.py:87
+開啟、複製到今天、匯出、舊版本（還原）、分享（郵件／Google Drive）、刪除、清整天,"Open, copy to today, export, older versions (restore), share (email / Google Drive), delete, clear the day",打开、复制到今天、导出、旧版本（还原）、分享（邮件／Google Drive）、删除、清整天,開く、今日にコピー、エクスポート、以前のバージョン（復元）、共有（メール／Google Drive）、削除、その日を消去,SettingsPanel.SHORTCUTS

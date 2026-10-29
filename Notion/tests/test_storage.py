@@ -41,8 +41,6 @@ class StorageTest(unittest.TestCase):
         self.store.save(self.store.next_id(self.d1), "x")
         self.store.save(self.store.next_id(self.d2), "y")
         self.assertEqual(self.store.list_days(), [self.d2, self.d1])
-        self.assertEqual(self.store.previous_day_with_notes(self.d2), self.d1)
-        self.assertIsNone(self.store.previous_day_with_notes(self.d1))
 
     def test_empty_text_removes_file_to_trash(self):
         nid = self.store.next_id(self.d2)

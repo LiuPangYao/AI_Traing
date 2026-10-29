@@ -80,3 +80,34 @@ def fmt_day(d, with_weekday: bool = True) -> str:
 
 
 LINK_COLOR = ("#1a5fd0", "#7fb0ff")
+
+
+def tooltip(widget, text: str, delay_ms: int = 600) -> None:
+    """滑鼠停 0.6 秒出現的小提示（工具列、格式列按鈕都用這套）。"""
+    import tkinter as tk
+    state = {"win": None, "job": None}
+
+    def show():
+        state["job"] = None
+        if state["win"] is not None or not widget.winfo_exists():
+            return
+        w = tk.Toplevel(widget)
+        w.overrideredirect(True)
+        w.attributes("-topmost", True)
+        tk.Label(w, text=text, font=(UI_FONT_FAMILY, 10), bg="#333843", fg="#ffffff", padx=8, pady=4).pack()
+        w.geometry(f"+{widget.winfo_rootx()}+{widget.winfo_rooty() + widget.winfo_height() + 4}")
+        state["win"] = w
+
+    def hide(_e=None):
+        if state["job"] is not None:
+            widget.after_cancel(state["job"]); state["job"] = None
+        if state["win"] is not None:
+            state["win"].destroy(); state["win"] = None
+
+    def arm(*_):                                   # *_：CTk 有些地方會不帶 event 呼叫綁定的函式
+        if state["job"] is None and widget.winfo_exists():
+            state["job"] = widget.after(delay_ms, show)
+
+    widget.bind("<Enter>", arm, add="+")
+    widget.bind("<Leave>", hide, add="+")
+    widget.bind("<ButtonPress>", hide, add="+")

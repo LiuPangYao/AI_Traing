@@ -143,6 +143,33 @@ plus.event_generate("<Enter>"); win.update()
 check(plus.cget("text") == "＋", "滑過日期列 ＋ 出現")
 win.event_generate("<Control-t>"); win.update()
 check(win.current_day == today, "Ctrl+T 回到今天")
+# 舊版本視窗：先做兩份快照，開視窗、選第二份、還原
+nid1 = NoteId(today, 1)
+st.SNAPSHOT_MIN_GAP = 0
+st.snapshot(nid1, "# 會議\n版本二"); st.save(nid1, "# 會議\n版本二"); st.snapshot(nid1, "# 會議\n版本三"); st.save(nid1, "# 會議\n版本三")
+win.open_note(nid1); win.update()
+win.show_versions(nid1); win.update()
+dlg = win._versions_dialog
+vs = dlg._versions_state
+check(len(vs["rows"]) == 2, "舊版本視窗列出兩份")
+vs["rows"][1].event_generate("<Button-1>"); win.update()
+dlg._versions_restore(); win.update(); win.update()
+check(win.editor.get_text() == "# 會議\n- 決議一\n", "還原最舊那版（內容回到匯入時）")
+check(st.try_load(nid1)[0] == "# 會議\n- 決議一\n", "檔案也換回去了")
+check(len(st.list_snapshots(nid1)) == 3 and st.load_snapshot(st.list_snapshots(nid1)[0][1]) == "# 會議\n版本三", "還原前把當時的內容多留了一份")
+# 分享：郵件（攔下 open_path 看網址）、Google Drive（指到暫存資料夾）
+from personalnote import platform_
+opened = []
+platform_.open_path = lambda p: opened.append(str(p))
+platform_.open_folder = lambda p: opened.append("folder:" + str(p))
+win.share_mail(nid1); win.update()
+check(opened and opened[-1].startswith("mailto:?subject=") and "%E6%B1%BA%E8%AD%B0%E4%B8%80" in opened[-1], "郵件：mailto 帶主旨與純文字內文")
+drive = tmp / "drive"; drive.mkdir()
+platform_.google_drive_dir = lambda: drive
+win.share_drive(nid1); win.update()
+files = sorted(p.name for p in drive.iterdir())
+check(files == [f"{today.isoformat()}_001_會議.md"] and (drive / files[0]).read_text(encoding="utf-8").startswith("# 會議"), "Google Drive：存成 .md 到同步資料夾")
+check(opened[-1] == "folder:" + str(drive), "存完打開那個資料夾")
 check("第" not in win.day_label.cget("text"), "上方不顯示第幾張")
 win.new_note(today); win.update()
 check(win.editor.title.get() == "筆記4", "新筆記預設標題「筆記4」")   # 標題欄拿到焦點時內文 FocusOut 會先存一次，所以不檢查 dirty

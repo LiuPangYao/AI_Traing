@@ -42,3 +42,20 @@ class HistoryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ForceSnapshotTest(unittest.TestCase):
+    def test_force_ignores_min_gap(self):
+        import tempfile, pathlib
+        from datetime import date
+        from personalnote.storage import NoteId, NoteStore
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix="pn_force_"))
+        st = NoteStore(tmp / "n", encrypt=False)
+        nid = NoteId(date(2026, 10, 29), 1)
+        st.save(nid, "# a\n一")
+        self.assertTrue(st.snapshot(nid, "# a\n二"))          # 第一份
+        st.save(nid, "# a\n二")
+        self.assertFalse(st.snapshot(nid, "# a\n三"))         # 10 分鐘內：不留
+        self.assertTrue(st.snapshot(nid, "# a\n三", force=True))   # 還原前：一定留
+        self.assertEqual([st.load_snapshot(p) for _, p in st.list_snapshots(nid)], ["# a\n二", "# a\n一"])
+        self.assertFalse(st.snapshot(nid, "# a\n二", force=True))  # 內容沒變還是不留

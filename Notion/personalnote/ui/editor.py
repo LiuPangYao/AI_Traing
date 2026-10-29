@@ -127,34 +127,7 @@ def _load_photo(path: Path, max_w: int, want_w: Optional[int] = None):
         return None
 
 
-def _tip(widget, text: str) -> None:
-    """滑鼠停 0.6 秒出現的小提示（格式列按鈕用）。"""
-    state = {"win": None, "job": None}
-
-    def show():
-        state["job"] = None
-        if state["win"] is not None or not widget.winfo_exists():
-            return
-        w = tk.Toplevel(widget)
-        w.overrideredirect(True)
-        w.attributes("-topmost", True)
-        tk.Label(w, text=text, font=(T.UI_FONT_FAMILY, 9), bg="#333333", fg="#ffffff", padx=6, pady=3).pack()
-        w.geometry(f"+{widget.winfo_rootx()}+{widget.winfo_rooty() + widget.winfo_height() + 4}")
-        state["win"] = w
-
-    def hide(_e=None):
-        if state["job"] is not None:
-            widget.after_cancel(state["job"]); state["job"] = None
-        if state["win"] is not None:
-            state["win"].destroy(); state["win"] = None
-
-    def arm(*_):                                   # *_：CTk 有些地方會不帶 event 呼叫綁定的函式
-        if state["job"] is None and widget.winfo_exists():
-            state["job"] = widget.after(600, show)
-
-    widget.bind("<Enter>", arm, add="+")
-    widget.bind("<Leave>", hide, add="+")
-    widget.bind("<Button-1>", hide, add="+")
+_tip = T.tooltip                 # 小提示：跟主視窗工具列同一套（theme.tooltip）
 
 
 class Editor(ctk.CTkFrame):
@@ -336,9 +309,6 @@ class Editor(ctk.CTkFrame):
         """整份筆記文字：標題行 + 內文。"""
         return join_title(self.title.get(), self.text.get("1.0", "end-1c"))
 
-    def focus_title(self) -> None:
-        self.title.focus_set()
-
     def set_default_title(self, title: str) -> None:
         """新筆記預設標題（例如「筆記3」）：填進去、整個反白、算成有改（會自動存），直接打字就蓋掉。"""
         if self.read_only:
@@ -486,6 +456,17 @@ class Editor(ctk.CTkFrame):
 
     def is_dirty(self) -> bool:
         return self._dirty
+
+    def destroy(self) -> None:
+        for name in ("_fade_job", "_save_timer", "_hl_timer"):       # 排程中的工作先取消，視窗關了才不會 bgerror
+            job = getattr(self, name, None)
+            if job is not None:
+                try:
+                    self.after_cancel(job)
+                except Exception:
+                    pass
+                setattr(self, name, None)
+        super().destroy()
 
     STATUS_FADE_AFTER_MS = 2500
     STATUS_FADE_STEPS = 6

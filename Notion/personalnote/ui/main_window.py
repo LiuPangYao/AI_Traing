@@ -381,10 +381,79 @@ class MainWindow(ctk.CTk):
         m.add_command(label=_("開啟"), command=lambda: self.open_note(nid))
         m.add_command(label=_("複製到今天"), command=lambda: self.copy_to_today(nid))
         m.add_command(label=_("匯出這張…"), command=lambda: self.export_note(nid))
+        m.add_command(label=_("舊版本…"), command=lambda: self.show_versions(nid))
+        share = tk.Menu(m, tearoff=0, font=(T.UI_FONT_FAMILY, 10))
+        share.add_command(label=_("用郵件寄出（開郵件程式）"), command=lambda: self.share_mail(nid))
+        share.add_command(label=_("複製到 Google Drive 資料夾"), command=lambda: self.share_drive(nid))
+        m.add_cascade(label=_("分享"), menu=share)
         m.add_separator()
         m.add_command(label=_("刪除這張"), command=lambda: self.delete_note(nid))
         m.add_command(label=_("清掉 {0} 整天").format(T.fmt_day(nid.day, False)), command=lambda: self.clear_day(nid.day))
         m.tk_popup(x, y)
+
+    def show_versions(self, nid: NoteId) -> None:
+        """右鍵「舊版本…」：列出這張的快照（每次內容有變且隔 10 分鐘以上就留一份），可以看、可以還原。"""
+        from . import versions
+        self.editor.flush()
+        versions.show(self, self.store, nid, on_restore=self.restore_version, quiet=_quiet_dialog)
+
+    def restore_version(self, nid: NoteId, path: Path) -> None:
+        text = self.store.load_snapshot(path)
+        self.editor.flush()
+        self.store.snapshot(nid, text, force=True)      # 現在的內容先留一份，還原錯了還能再還回來
+        self.store.save(nid, text)
+        applog.info("還原舊版 %s-%03d ← %s", nid.day, nid.seq, path.name)
+        if nid == self.current:
+            self.editor.set_text(text)
+        else:
+            self.open_note(nid)
+        self._refresh_sidebar()
+        self.editor._set_status(_("已還原舊版本"), fade=True)
+
+    def _share_text(self, nid: NoteId):
+        self.editor.flush()
+        text, ok = self.store.try_load(nid)
+        if not ok or not text.strip():
+            messagebox.showwarning(APP_NAME, _("這張是空的或解不開，沒有東西可以分享。"), parent=self)
+            return None
+        return text
+
+    SHARE_MAIL_MAX = 1800        # mailto 網址太長有些郵件程式會吃不下；超過就只帶前面一段並提醒用匯出
+
+    def share_mail(self, nid: NoteId) -> None:
+        """開系統預設的郵件程式，主旨＝標題、內文＝去掉記號的純文字（mailto 不能帶附件）。"""
+        text = self._share_text(nid)
+        if text is None:
+            return
+        from urllib.parse import quote
+        from .. import markup
+        subject = title_of(text) or T.fmt_day(nid.day, False)
+        body = markup.plain(text.split("\n", 1)[1] if "\n" in text else "")
+        cut = len(body) > self.SHARE_MAIL_MAX
+        if cut:
+            body = body[: self.SHARE_MAIL_MAX] + "\n…"
+        url = f"mailto:?subject={quote(subject)}&body={quote(body.replace(chr(10), chr(13) + chr(10)))}"
+        platform_.open_path(url)
+        if cut:
+            messagebox.showinfo(APP_NAME, _("筆記太長，郵件只帶了前面一段。完整的請用「匯出這張」存成檔案再附加。"), parent=self)
+
+    def share_drive(self, nid: NoteId) -> None:
+        """存一份 .md 到 Google Drive 桌面版的同步資料夾（找得到就直接存，找不到就讓你選資料夾）。"""
+        text = self._share_text(nid)
+        if text is None:
+            return
+        import re as _re
+        folder = platform_.google_drive_dir()
+        if folder is None:
+            chosen = filedialog.askdirectory(parent=self, title=_("找不到 Google Drive 資料夾，請自己選（或任何要同步的資料夾）"))
+            if not chosen:
+                return
+            folder = Path(chosen)
+        safe = _re.sub(r'[\\/:*?"<>|]', "_", title_of(text))
+        dest = folder / f"{nid.day.isoformat()}_{nid.seq:03d}_{safe}.md"
+        self.store.export_note(nid, dest)
+        self.editor._set_status(_("已存到 {0}").format(folder.name), fade=True)
+        platform_.open_folder(folder)
 
     def copy_to_today(self, nid: NoteId) -> None:
         self.editor.flush()                  # 先把手上這張存掉，next_id 才不會跟它撞號
@@ -792,31 +861,7 @@ class MainWindow(ctk.CTk):
         self.after(2000, self._heartbeat)
 
 
-def _tooltip(widget, text: str, delay_ms: int = 600) -> None:
-    """滑鼠停在按鈕上 0.6 秒顯示說明。"""
-    state = {"after": None, "tip": None}
-
-    def show():
-        state["after"] = None
-        tip = tk.Toplevel(widget)
-        tip.wm_overrideredirect(True)
-        tip.attributes("-topmost", True)
-        tk.Label(tip, text=text, font=(T.UI_FONT_FAMILY, 10), bg="#333843", fg="#ffffff", padx=8, pady=4).pack()
-        tip.geometry(f"+{widget.winfo_rootx()}+{widget.winfo_rooty() + widget.winfo_height() + 4}")
-        state["tip"] = tip
-
-    def enter(_e):
-        state["after"] = widget.after(delay_ms, show)
-
-    def leave(_e):
-        if state["after"]:
-            widget.after_cancel(state["after"]); state["after"] = None
-        if state["tip"]:
-            state["tip"].destroy(); state["tip"] = None
-
-    widget.bind("<Enter>", enter, add="+")
-    widget.bind("<Leave>", leave, add="+")
-    widget.bind("<ButtonPress>", leave, add="+")
+_tooltip = T.tooltip             # 小提示：跟格式列同一套（theme.tooltip）
 
 
 def _quiet_dialog(dlg: ctk.CTkToplevel) -> None:
@@ -990,7 +1035,7 @@ class SettingsPanel(ctk.CTkToplevel):
         ("行首 1. 或 - 後 Enter", "自動接下一項，空項再 Enter 結束"),
         ("格式列「打勾」", "這行變 - [ ] 清單；點方框打勾，完成的會劃掉"),
         ("內文按右鍵", "剪下、複製、貼上、全選、複製成純文字（去掉記號）"),
-        ("筆記列按右鍵", "開啟、複製到今天、匯出、刪除、清整天"),
+        ("筆記列按右鍵", "開啟、複製到今天、匯出、舊版本（還原）、分享（郵件／Google Drive）、刪除、清整天"),
         ("日期列按右鍵", "在這天新增、整天合成一個 .md 匯出、清整天"),
         ("拖檔案進視窗", ".md／.txt 匯成今天的筆記；其他檔變附件連結"),
         ("長按筆記列再拖", "同一天裡上下調整順序（搜尋中不能排）"),

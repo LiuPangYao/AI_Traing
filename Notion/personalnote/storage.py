@@ -362,12 +362,6 @@ class NoteStore:
         used = [r.id.seq for r in self.list_notes(day)]
         return NoteId(day, (max(used) + 1) if used else 1)
 
-    def previous_day_with_notes(self, day: date) -> Optional[date]:
-        for d in self.list_days():
-            if d < day:
-                return d
-        return None
-
     def search(self, keyword: str) -> dict[date, list[NoteRef]]:
         """關鍵字在日期或內容裡的筆記，依日期分組（新的在前）。空字串＝全部。"""
         kw = keyword.strip().lower()
@@ -469,9 +463,9 @@ class NoteStore:
     def _history_dir(self, nid: NoteId) -> Path:
         return self.root / APP_SUBDIR / self.HISTORY_DIR / f"{nid.day.isoformat()}_{nid.seq:03d}"
 
-    def snapshot(self, nid: NoteId, text: str) -> bool:
+    def snapshot(self, nid: NoteId, text: str, force: bool = False) -> bool:
         """存檔前呼叫：把「存之前的內容」留一份。內容沒變、或之前是空的就不留。回傳有沒有留。
-        快照跟正式檔用同一種格式（加密就加密），檔名是時間。"""
+        快照跟正式檔用同一種格式（加密就加密），檔名是時間。force=True 不管間隔一定留（還原舊版前用）。"""
         old, ok = self.try_load(nid)
         if not ok or old.strip() == "" or old == text:
             return False
@@ -479,7 +473,7 @@ class NoteStore:
         d.mkdir(parents=True, exist_ok=True)
         # 每次自動存（停 1.2 秒）都留的話 30 份幾分鐘就洗光；距上一份不到 SNAPSHOT_MIN_GAP 秒就不留（PM 審查）
         newest = max((p.stat().st_mtime for p in d.iterdir()), default=0.0)
-        if datetime.now().timestamp() - newest < self.SNAPSHOT_MIN_GAP:
+        if not force and datetime.now().timestamp() - newest < self.SNAPSHOT_MIN_GAP:
             return False
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
         ext = EXT_ENC if self.encrypt else EXT_PLAIN
