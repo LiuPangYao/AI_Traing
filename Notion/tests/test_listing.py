@@ -27,3 +27,14 @@ class ListingTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChecklistTest(unittest.TestCase):
+    def test_checkbox_continues_unticked(self):
+        self.assertEqual(next_marker("- [ ] 買牛奶"), "- [ ] ")
+        self.assertEqual(next_marker("- [x] 做完了"), "- [ ] ")
+        self.assertEqual(next_marker("  - [X] 子項"), "  - [ ] ")
+
+    def test_empty_checkbox_ends_list(self):
+        self.assertEqual(next_marker("- [ ] "), "")
+        self.assertEqual(next_marker("- [ ]   "), "")

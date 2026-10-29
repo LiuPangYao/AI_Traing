@@ -7,6 +7,9 @@
 | **粗體**      | 粗體                  | bold   |
 | *斜體*        | 斜體                  | italic |
 | ``` … ```     | 等寬灰底＋「複製」按鈕 | code_blocks() |
+| - [ ] 事項    | 方框，點一下打勾      | checkbox()    |
+| - [x] 事項    | 打勾、字劃掉          | checkbox()    |
+| #標籤         | 主色字，Ctrl+點＝搜尋 | tags()        |
 
 規則：記號裡面不能是空的、頭尾不能是空白（「* 項目 * 另一項」不會被當斜體）；``` 區塊裡的字不套行內記號。
 要加一種記號：MARKERS 加一列、INLINE_RE 加一個分支（順序要在比它短的記號前面）、editor.py 的 STYLE_TAGS 加顏色。
@@ -30,6 +33,10 @@ INLINE_RE = re.compile(
     r"|(\*)" + _inner("*") + r"\*"
 )
 FENCE = "```"
+CHECK_RE = re.compile(r"^(\s*)- \[( |x|X)\] ")                    # 打勾清單：「- [ ] 」「- [x] 」（GitHub 寫法）
+# #標籤：# 前面不能黏著字母／數字／#／路徑符號（網址的 #anchor、「issue #42」的純數字不算）
+TAG_RE = re.compile(r"(?<![\w#/.&=])#([A-Za-z_\u3040-\u30ff\u4e00-\u9fff][\w\u3040-\u30ff\u4e00-\u9fff-]{0,29})")
+ATTACH_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^()]+)\)(?:\{w=\d+\})?")
 
 
 @dataclass(frozen=True)
@@ -92,3 +99,48 @@ def block_text(lines: list[str], a: int, b: int) -> str:
     """指令區塊的內容（不含圍欄），給「複製」按鈕用。沒關的區塊最後一行是內容，不是圍欄。"""
     end = b if (b > a and is_fence(lines[b])) else b + 1
     return "\n".join(lines[a + 1:end])
+
+
+def checkbox(line: str):
+    """打勾清單那一行 → (記號起點, 記號終點, 打勾了嗎)；不是就 None。記號＝「- [ ] 」六個字（縮排不算）。"""
+    m = CHECK_RE.match(line)
+    if not m:
+        return None
+    return m.end(1), m.end(), m.group(2).lower() == "x"
+
+
+def toggle_checkbox(line: str) -> str:
+    """「- [ ] 」↔「- [x] 」；不是打勾清單就原樣回。"""
+    m = CHECK_RE.match(line)
+    if not m:
+        return line
+    new = " " if m.group(2).lower() == "x" else "x"
+    return line[:m.start(2)] + new + line[m.end(2):]
+
+
+def tags(line: str) -> list[tuple[int, int]]:
+    """一行裡的 #標籤：(起點含 #, 終點)。"""
+    return [(m.start(), m.end()) for m in TAG_RE.finditer(line)]
+
+
+def plain(text: str) -> str:
+    """去掉記號的純文字（右鍵「複製成純文字」）：==x== → x、**x** → x、[名稱](路徑) → 名稱、``` 圍欄行拿掉。
+    打勾清單與 #標籤照原樣留著（本來就看得懂）。"""
+    lines = text.split("\n")
+    blocks = code_blocks(lines)
+    skip = set()
+    fences = set()
+    for a, b in blocks:
+        skip.update(range(a, b + 1))
+        fences.add(a)
+        if b > a and is_fence(lines[b]):
+            fences.add(b)
+    out = []
+    for i, l in enumerate(lines):
+        if i in fences:
+            continue
+        if i not in skip:
+            l = ATTACH_LINK_RE.sub(lambda m: m.group(1) or m.group(2), l)
+            l = INLINE_RE.sub(lambda m: next(g for g in m.groups()[1::2] if g is not None), l)
+        out.append(l)
+    return "\n".join(out)

@@ -77,3 +77,19 @@ class ImportExportTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExportDayTest(unittest.TestCase):
+    def test_export_day_joins_notes(self):
+        import tempfile, pathlib
+        from datetime import date
+        from personalnote.storage import NoteId, NoteStore
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix="pn_expday_"))
+        st = NoteStore(tmp / "n", encrypt=False)
+        d = date(2026, 10, 29)
+        st.save(NoteId(d, 1), "# 甲\n一\n")
+        st.save(NoteId(d, 2), "# 乙\n二")
+        out = tmp / "out" / "2026-10-29.md"
+        self.assertEqual(st.export_day(d, out), 2)
+        self.assertEqual(out.read_text(encoding="utf-8"), "# 甲\n一\n\n# 乙\n二\n")
+        self.assertEqual(st.export_day(date(2026, 1, 1), tmp / "empty.md"), 0)

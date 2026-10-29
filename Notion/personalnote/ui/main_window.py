@@ -59,6 +59,8 @@ class MainWindow(ctk.CTk):
 
         self.bind("<Control-n>", lambda _e: self.new_note(self.current_day))
         self.bind("<Control-backslash>", lambda _e: self.toggle_sidebar())   # Ctrl+B 讓給粗體
+        self.bind("<Control-f>", lambda _e: self.focus_search())
+        self.bind("<Control-t>", lambda _e: self.go_day(date.today()))
         for seq in ("<Control-plus>", "<Control-equal>", "<Control-KP_Add>"):      # 一般鍵盤的 + 要 Shift，Ctrl+= 送的是 equal
             self.bind(seq, lambda _e: self.zoom(1))
         for seq in ("<Control-minus>", "<Control-KP_Subtract>"):
@@ -85,7 +87,8 @@ class MainWindow(ctk.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.sidebar = Sidebar(self, on_select=self.open_note, on_add=self.new_note,
                                on_search=self._on_search, on_note_menu=self.note_menu,
-                               on_add_pick=self.new_note_pick, on_reorder=self.reorder_day)
+                               on_add_pick=self.new_note_pick, on_reorder=self.reorder_day,
+                               on_day_menu=self.day_menu)
         self.sidebar.grid(row=0, column=0, sticky="nsw")
         self.sidebar.set_width(self.state_.sidebar_width)
         if self._search_kw:                      # 換語言重畫時搜尋還在：框裡的字也要還原，不然清單被濾了卻看不出為什麼
@@ -112,7 +115,8 @@ class MainWindow(ctk.CTk):
                              resolve_link=lambda link: self.store.resolve(link),
                              on_paste_image=self.paste_image,
                              format_bar=self.state_.format_bar,
-                             on_format_toggle=self._on_format_toggle)
+                             on_format_toggle=self._on_format_toggle,
+                             on_tag=self.search_tag)
         self.editor.grid(row=2, column=0, sticky="nsew")
 
     def rebuild_ui(self) -> None:
@@ -339,6 +343,37 @@ class MainWindow(ctk.CTk):
     def _on_search(self, kw: str) -> None:
         self._search_kw = kw
         self._refresh_sidebar()
+
+    def search_tag(self, tag: str) -> None:
+        """Ctrl+點內文的 #標籤：左欄搜尋框填入那個標籤。再點一次（已經在搜同一個）就清掉。"""
+        if not self.state_.sidebar_visible:
+            self.toggle_sidebar()
+        self.sidebar.set_search("" if self._search_kw.strip() == tag else tag)
+
+    def focus_search(self) -> None:
+        if not self.state_.sidebar_visible:
+            self.toggle_sidebar()
+        self.sidebar.focus_search()
+
+    # ---- 右鍵選單（日期列）----
+    def day_menu(self, day: date, x: int, y: int) -> None:
+        m = tk.Menu(self, tearoff=0, font=(T.UI_FONT_FAMILY, 10))
+        m.add_command(label=_("在這天新增"), command=lambda: self.new_note(day))
+        m.add_command(label=_("匯出這一天（合成一個 .md）…"), command=lambda: self.export_day(day))
+        m.add_separator()
+        m.add_command(label=_("清掉 {0} 整天").format(T.fmt_day(day, False)), command=lambda: self.clear_day(day))
+        m.tk_popup(x, y)
+
+    def export_day(self, day: date) -> None:
+        self.editor.flush()
+        if not self.store.list_notes(day):
+            messagebox.showwarning(APP_NAME, _("這一天沒有筆記。"), parent=self)
+            return
+        path = filedialog.asksaveasfilename(parent=self, title=_("匯出這一天"), initialfile=f"{day.isoformat()}.md",
+                                            defaultextension=".md", filetypes=[(_("純文字"), "*.md *.txt")])
+        if path:
+            n = self.store.export_day(day, Path(path))
+            self.editor._set_status(_("已匯出 {0} 張").format(n), fade=True)
 
     # ---- 右鍵選單（筆記列）----
     def note_menu(self, nid: NoteId, x: int, y: int) -> None:
@@ -940,6 +975,8 @@ class SettingsPanel(ctk.CTkToplevel):
 
     SHORTCUTS = (
         ("Ctrl+N", "新筆記"),
+        ("Ctrl+T", "回到今天"),
+        ("Ctrl+F", "跳到搜尋框"),
         ("Ctrl+S", "立刻存（平常停 1.2 秒就自動存）"),
         ("Ctrl+\\", "收起／展開左欄"),
         ("Ctrl+H / Ctrl+Shift+H", "選取的字標黃底 ==重點== ／ 紅字 !!警告!!"),
@@ -949,8 +986,12 @@ class SettingsPanel(ctk.CTkToplevel):
         ("Ctrl+滾輪、Ctrl+±", "字體放大縮小"),
         ("Ctrl+V", "貼截圖（剪貼簿是圖就存成附件）"),
         ("Ctrl+點連結", "開網址或檔案路徑"),
+        ("Ctrl+點 #標籤", "左欄搜尋這個標籤（再點一次清掉）"),
         ("行首 1. 或 - 後 Enter", "自動接下一項，空項再 Enter 結束"),
+        ("格式列「打勾」", "這行變 - [ ] 清單；點方框打勾，完成的會劃掉"),
+        ("內文按右鍵", "剪下、複製、貼上、全選、複製成純文字（去掉記號）"),
         ("筆記列按右鍵", "開啟、複製到今天、匯出、刪除、清整天"),
+        ("日期列按右鍵", "在這天新增、整天合成一個 .md 匯出、清整天"),
         ("拖檔案進視窗", ".md／.txt 匯成今天的筆記；其他檔變附件連結"),
         ("長按筆記列再拖", "同一天裡上下調整順序（搜尋中不能排）"),
     )

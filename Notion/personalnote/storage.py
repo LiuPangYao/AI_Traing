@@ -534,6 +534,18 @@ class NoteStore:
         dest_file.parent.mkdir(parents=True, exist_ok=True)
         dest_file.write_text(text, encoding="utf-8", newline="\n")
 
+    def export_day(self, day: date, dest_file: Path) -> int:
+        """一整天的筆記合成一個 .md（每張「# 標題」開頭，中間空一行隔開）。回匯出的張數；解不開的跳過。"""
+        parts = []
+        for r in self.list_notes(day):
+            text, ok = self.try_load(r.id)
+            if ok and text.strip():
+                parts.append(text.rstrip("\n"))
+        dest_file = Path(dest_file)
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        dest_file.write_text("\n\n".join(parts) + "\n", encoding="utf-8", newline="\n")
+        return len(parts)
+
     def import_text(self, day: date, text: str, default_title: str = "") -> NoteId:
         """一段文字變成那一天的新筆記（接在最後面編號）。沒有「# 標題」行時用 default_title 當標題。"""
         title, body = split_title(text)

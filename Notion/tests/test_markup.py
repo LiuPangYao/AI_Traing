@@ -1,7 +1,7 @@
 # [AI協助 Claude] 由 Peter Liu 於 2026-10-29 審閱修改
 import unittest
 
-from personalnote.markup import block_text, code_blocks, inline_spans, parse
+from personalnote.markup import block_text, checkbox, code_blocks, inline_spans, parse, plain, tags, toggle_checkbox
 
 
 class InlineTest(unittest.TestCase):
@@ -52,3 +52,34 @@ class CodeBlockTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CheckboxTagPlainTest(unittest.TestCase):
+    def test_checkbox(self):
+        self.assertEqual(checkbox("- [ ] 買牛奶"), (0, 6, False))
+        self.assertEqual(checkbox("  - [x] 做完"), (2, 8, True))
+        self.assertEqual(checkbox("  - [X] 做完")[2], True)
+        self.assertIsNone(checkbox("- [] 不是"))
+        self.assertIsNone(checkbox("-[ ] 不是"))
+        self.assertIsNone(checkbox("- [ ]沒空格"))
+        self.assertIsNone(checkbox("普通"))
+
+    def test_toggle(self):
+        self.assertEqual(toggle_checkbox("- [ ] a"), "- [x] a")
+        self.assertEqual(toggle_checkbox("  - [x] a"), "  - [ ] a")
+        self.assertEqual(toggle_checkbox("- [X] a"), "- [ ] a")
+        self.assertEqual(toggle_checkbox("沒有"), "沒有")
+
+    def test_tags(self):
+        self.assertEqual(tags("今天 #專案A 和 #todo-x 結束"), [(3, 7), (10, 17)])
+        self.assertEqual(tags("issue #42 不是標籤"), [])
+        self.assertEqual(tags("https://a.b/c#frag 網址裡的不算"), [])
+        self.assertEqual(tags("C#語言 黏著字母不算"), [])
+        self.assertEqual(tags("#開頭 可以"), [(0, 3)])
+        self.assertEqual(tags("#タグ も可"), [(0, 3)])
+
+    def test_plain(self):
+        src = "看 **設計** 和 ==重點== !!紅!! *斜*\n[圖](attachments/a.png){w=3} 和 [](x.pdf)\n```\nls -l\n```\n- [x] 事 #tag"
+        self.assertEqual(plain(src), "看 設計 和 重點 紅 斜\n圖 和 x.pdf\nls -l\n- [x] 事 #tag")
+        self.assertEqual(plain("```\n沒關的區塊\n**裡面不動**"), "沒關的區塊\n**裡面不動**")
+        self.assertEqual(plain(""), "")

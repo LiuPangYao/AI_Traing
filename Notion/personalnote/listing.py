@@ -5,6 +5,7 @@
     next_marker("1. 買牛奶")  -> "2. "
     next_marker("  - 子項")    -> "  - "
     next_marker("3. ")         -> ""      （只有標記沒內容 = 想結束清單，呼叫端把這行清掉）
+    next_marker("- [x] 買好了") -> "- [ ] " （打勾清單：下一項是空框）
     next_marker("普通文字")    -> None    （不是清單）
 """
 from __future__ import annotations
@@ -14,6 +15,7 @@ from typing import Optional
 
 NUMBERED_RE = re.compile(r"^(\s*)(\d+)(?:([.)])\s+|(、)\s*)(.*)$")   # 「1. 」「1) 」要空格；「1、」可不用
 BULLET_RE = re.compile(r"^(\s*)([-•*])\s+(.*)$")
+CHECK_RE = re.compile(r"^(\s*)- \[( |x|X)\] (.*)$")
 
 
 def next_marker(line: str) -> Optional[str]:
@@ -23,6 +25,10 @@ def next_marker(line: str) -> Optional[str]:
         if rest.strip() == "":
             return ""
         return f"{indent}{int(num) + 1}{sep_zh}" if sep_zh else f"{indent}{int(num) + 1}{sep_ascii} "
+    m = CHECK_RE.match(line)
+    if m:
+        indent, _done, rest = m.groups()
+        return "" if rest.strip() == "" else f"{indent}- [ ] "
     m = BULLET_RE.match(line)
     if m:
         indent, mark, rest = m.groups()

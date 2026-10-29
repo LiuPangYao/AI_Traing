@@ -176,3 +176,22 @@ Notion.bat 裡的 NOTE_DIR 有設值，下次用 .bat 開會以它為準。\n,NO
 同一天裡上下調整順序（搜尋中不能排）,Reorder notes within the same day (not while searching),在同一天里上下调整顺序（搜索中不能排）,同じ日の中で順番を入れ替え（検索中は不可）,SettingsPanel.SHORTCUTS
 點這裡寫待辦,Click here to write your to-do list,点这里写待办,ここをクリックしてやることを書く,personalnote\ui\main_window.py:216
 待辦事項,To-do,待办事项,やること,personalnote\ui\theme.py:76
+打勾,Checkbox,打勾,チェック,personalnote\ui\editor.py:223
+這一行變成打勾清單（- [ ] ），點方框打勾,Turn this line into a checklist item (- [ ] ); click the box to tick it,这一行变成打勾清单（- [ ] ），点方框打勾,この行をチェックリスト（- [ ] ）にする。四角をクリックでチェック,personalnote\ui\editor.py:223
+直接打字就會自動存。\nCtrl+V 貼截圖、把 .txt／.md 或檔案拖進來也可以。,Just start typing; it saves automatically.\nCtrl+V pastes a screenshot. You can also drop .txt / .md or other files here.,直接打字就会自动保存。\nCtrl+V 粘贴截图，也可以把 .txt／.md 或文件拖进来。,入力するだけで自動保存されます。\nCtrl+V でスクリーンショットを貼り付け、.txt／.md やファイルのドロップもできます。,personalnote\ui\editor.py:277
+複製成純文字（去掉記號）,Copy as plain text (markup removed),复制为纯文本（去掉记号）,プレーンテキストとしてコピー（記号なし）,personalnote\ui\editor.py:999
+已複製純文字,Copied as plain text,已复制纯文本,プレーンテキストをコピーしました,personalnote\ui\editor.py:1010
+在這天新增,New note on this day,在这天新建,この日に新規作成,personalnote\ui\main_window.py:361
+匯出這一天（合成一個 .md）…,Export this day (one .md file)…,导出这一天（合成一个 .md）…,この日をエクスポート（1 つの .md に）…,personalnote\ui\main_window.py:362
+這一天沒有筆記。,There are no notes on this day.,这一天没有笔记。,この日にはノートがありません。,personalnote\ui\main_window.py:370
+匯出這一天,Export this day,导出这一天,この日をエクスポート,personalnote\ui\main_window.py:372
+已匯出 {0} 張,Exported {0} notes,已导出 {0} 张,{0} 件をエクスポートしました,personalnote\ui\main_window.py:376
+跳到搜尋框,Jump to the search box,跳到搜索框,検索ボックスへ移動,SettingsPanel.SHORTCUTS
+Ctrl+點 #標籤,Ctrl+click a #tag,Ctrl+点 #标签,Ctrl+クリック #タグ,SettingsPanel.SHORTCUTS
+左欄搜尋這個標籤（再點一次清掉）,Search that tag in the sidebar (Ctrl+click again to clear),左栏搜索这个标签（再点一次清除）,サイドバーでそのタグを検索（もう一度でクリア）,SettingsPanel.SHORTCUTS
+格式列「打勾」,Format bar “Checkbox”,格式栏“打勾”,書式バー「チェック」,SettingsPanel.SHORTCUTS
+這行變 - [ ] 清單；點方框打勾，完成的會劃掉,"Turns the line into a - [ ] item; click the box to tick, done items are struck through",这行变 - [ ] 清单；点方框打勾，完成的会划掉,行を - [ ] 項目にする。四角をクリックでチェック、完了は取り消し線,SettingsPanel.SHORTCUTS
+內文按右鍵,Right-click in the body,正文按右键,本文で右クリック,SettingsPanel.SHORTCUTS
+剪下、複製、貼上、全選、複製成純文字（去掉記號）,"Cut, copy, paste, select all, copy as plain text (markup removed)",剪切、复制、粘贴、全选、复制为纯文本（去掉记号）,切り取り、コピー、貼り付け、すべて選択、プレーンテキストとしてコピー,SettingsPanel.SHORTCUTS
+日期列按右鍵,Right-click a date header,日期行按右键,日付行で右クリック,SettingsPanel.SHORTCUTS
+在這天新增、整天合成一個 .md 匯出、清整天,"New note on that day, export the whole day as one .md, clear the day",在这天新建、整天合成一个 .md 导出、清整天,その日に新規作成、1 日を 1 つの .md にエクスポート、その日を消去,SettingsPanel.SHORTCUTS

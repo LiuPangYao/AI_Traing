@@ -14,11 +14,12 @@ TEXT = ("#1f2328", "#e6e6e6")
 TEXT_MUTED = ("#6b7280", "#9aa0a6")
 ROW_HOVER = ("#e4e8f0", "#2a2d35")
 DAY_HEADER = ("#374151", "#c7cbd1")
-DAY_ACTIVE_BG = ("#cdd3dd", "#383d48")   # 左欄：選中那張所在的那一天整組的底色（跟其他天區分；Peter 要再深一點）
+DAY_ACTIVE_BG = ("#e4e8f0", "#272a32")   # 左欄：選中那張所在的那一天整組的底色（比左欄深一階就好，選中那張另外有色帶）
+ROW_SELECTED_BG = ("#d6e2fb", "#2b3a5c") # 左欄：選中那張的淡底（左邊再加一條主色色帶，不整條塗藍）
 DANGER = ("#d9534f", "#e06c66")
 
 PAD = 10
-RADIUS = 10
+RADIUS = 6                   # 圓角小一點：CTk 畫圓角是用反鋸齒的圓，半徑大四個角看起來糊糊的（Peter 反映）
 SIDEBAR_WIDTH = 240          # 預設寬；要放得下英文的「2026/10/29 (Thu) Today」加「＋」（中文較短）
 SIDEBAR_MIN, SIDEBAR_MAX = 180, 480   # 拖分隔線能拖到的範圍（再窄日期標題會被切）
 MIN_FONT, MAX_FONT = 8, 48

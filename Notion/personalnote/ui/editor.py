@@ -8,8 +8,10 @@
 - 圖片：連結指到圖檔（png/jpg/gif/bmp/webp）就把圖直接畫在那一行後面。**檔案裡還是只有那行文字**，
   圖是顯示時從 attachments 讀出來的（tk 的 image_create 不會進 get() 的文字）。
   Ctrl+V 剪貼簿是圖（截圖）→ 存成 attachments/貼圖_時間.png 並插一行連結 → 圖立刻出現。
-- 標記：==重點==、!!紅字!!、**粗體**、*斜體* 照記號上色，記號本身淡灰；``` 區塊等寬灰底加「複製」按鈕。
+- 標記：==重點==、!!紅字!!、**粗體**、*斜體* 照記號上色；``` 區塊等寬深底加「複製」按鈕；「- [ ] 」打勾清單。
   規則在 markup.py（可單元測試），這裡只負責上色、放按鈕、把選取的字包上記號（格式列的按鈕／Ctrl+B 等）。
+- 記號藏起來：游標不在那一行時，記號（== !! ** *）、連結的 [ ](路徑)、``` 圍欄、- [ ] 都用 tk 的 elide 藏掉，
+  畫面只剩上色後的字；游標移到那一行就全部現形可以改。檔案內容不變。
 """
 from __future__ import annotations
 
@@ -37,15 +39,32 @@ WIDTH_ATTR_RE = re.compile(r"\)\{w=(\d+)\}")      # [名稱](路徑){w=400}：�
 ELIDE_TAG = "elide"          # 長連結中段藏起來（tk 的 elide），檔案內容不變
 ELL_TAG = "ell"              # 藏起來的位置放一個「…」小標籤
 LINK_SHOW_MAX = 48           # 連結顯示超過這麼多字才折
-MARKER_TAG = "marker"        # 記號本身（== !! ** * 和 ```）：淡灰
-CODE_TAG = "code"            # ``` 區塊：等寬、灰底
+MARKER_TAG = "marker"        # 記號本身（== !! ** * 和 ```）：游標在那行時淡灰，不在時藏起來（HIDE_TAG）
+HIDE_TAG = "hide"            # 藏起來的記號（elide）；只加在游標不在的行
+CODE_TAG = "code"            # ``` 區塊：等寬、深底
 COPY_TAG = "copybtn"         # 區塊開頭那行尾巴放的「複製」小按鈕（跟「…」一樣是嵌進去的 widget，重畫前要先拿掉）
+LABEL_TAG = "codelabel"      # 區塊開頭那行最前面的「指令」小標籤（嵌進去的 widget）
+CHECK_TAG = "checkbox"       # 打勾清單行首的 ☐／☑（嵌進去的 widget，點了就改文字）
+DONE_TAG = "done"            # 打勾完成的那行：劃掉、淡灰
+TAG_TAG = "hashtag"          # #標籤：主色字，Ctrl+點 → 主視窗拿去搜尋
 STYLE_TAGS = {"mark": "mark", "red": "red", "bold": "bold", "italic": "italic"}   # markup.KINDS → tag 名
 MARK_BG = ("#fff1a8", "#5c4f14")
 RED_FG = ("#d13438", "#ff7b72")
-CODE_BG = ("#eef0f4", "#2a2e36")
+CODE_BG = ("#dfe4ec", "#181b22")        # 指令區塊底色：比內文框明顯深一階（Peter：要像終端機那種感覺）
+CODE_FG = ("#1b2430", "#d7dde6")
+CODE_MUTED = ("#6b7280", "#8b93a1")     # 區塊裡的「指令」標籤、複製按鈕
+WIDGET_TAGS = (ELL_TAG, COPY_TAG, LABEL_TAG, CHECK_TAG)   # 嵌進文字框的小元件：重畫前全部拿掉
+CHECK_GLYPH = {False: "☐", True: "☑"}
+CURSOR_MOVE_MS = 60          # 游標換行後多久重畫（記號要現形）；打字是 HIGHLIGHT_MS
 MONO_FAMILY = __import__("personalnote.platform_", fromlist=["x"]).mono_font_family()   # Consolas／DejaVu Sans Mono
 LINK_HEAD, LINK_TAIL = 26, 16
+
+
+def _blend(c1: str, c2: str, t: float) -> str:
+    """兩個 #rrggbb 之間取一點（t=0 是 c1，t=1 是 c2）：狀態列淡出用。"""
+    a = [int(c1[i:i + 2], 16) for i in (1, 3, 5)]
+    b = [int(c2[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02x}" for x, y in zip(a, b))
 
 
 def _py_to_tk_col(line: str, col: int) -> int:
@@ -145,7 +164,8 @@ class Editor(ctk.CTkFrame):
                  resolve_link: Optional[Callable[[str], Path]] = None,
                  on_paste_image: Optional[Callable[[object], Optional[str]]] = None,
                  format_bar: bool = False,
-                 on_format_toggle: Optional[Callable[[bool], None]] = None):
+                 on_format_toggle: Optional[Callable[[bool], None]] = None,
+                 on_tag: Optional[Callable[[str], None]] = None):
         """resolve_link：連結字串 → 絕對路徑（主視窗給 store.resolve）；沒有就不顯示圖。
         on_paste_image(PIL 影像) → 要插進筆記的那行文字（主視窗負責存成附件）；None = 不處理貼圖。
         format_bar：格式列一開始展開嗎（預設收起，Peter：不常改）；on_format_toggle(展開了嗎) 讓主視窗記到 state.json。"""
@@ -157,6 +177,7 @@ class Editor(ctk.CTkFrame):
         self._on_open_link = on_open_link
         self._resolve_link = resolve_link
         self._on_paste_image = on_paste_image
+        self._on_tag = on_tag                   # Ctrl+點 #標籤 → on_tag("#標籤")（主視窗拿去搜尋）
         self._photos: list = []                 # 畫在筆記裡的圖（要留著參考，不然 tk 會把圖收掉）
         self._images_state: list = []           # 目前畫了哪些 (行, 路徑, 檔案mtime)；沒變就不重畫
         self._dirty = False
@@ -167,11 +188,11 @@ class Editor(ctk.CTkFrame):
         self.last_error = ""
 
         # 標題欄：就是檔案的第一行。左欄顯示它；留空的話左欄拿內文第一行（去掉 1. / - 標記）
-        self._title_font = ctk.CTkFont(family=font_family, size=font_size + 1, weight="bold")
+        # 無框大字（Peter：標題和格式列兩個同色方塊疊著很呆板）；空的時候有淡灰的「標題（可留空）」提示
+        self._title_font = ctk.CTkFont(family=font_family, size=font_size + 6, weight="bold")
         self.title = ctk.CTkEntry(self, font=self._title_font, placeholder_text=_("標題（可留空）"),
-                                  corner_radius=T.RADIUS, fg_color=T.EDITOR_BG, border_width=1,
-                                  border_color=T.EDITOR_BORDER, height=36)
-        self.title.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+                                  corner_radius=0, fg_color="transparent", border_width=0, height=40)
+        self.title.grid(row=0, column=0, sticky="ew", padx=4, pady=(0, 2))
         self.title.bind("<KeyRelease>", self._on_title_changed)
         self.title.bind("<Return>", lambda _e: (self.text.focus_set(), "break")[1])
         self.title.bind("<Control-MouseWheel>", self._on_ctrl_wheel)
@@ -199,12 +220,13 @@ class Editor(ctk.CTkFrame):
                                (_("紅字"), lambda: self.apply_style("red"), _("紅字（Ctrl+Shift+H）")),
                                (_("粗體"), lambda: self.apply_style("bold"), _("粗體（Ctrl+B）")),
                                (_("斜體"), lambda: self.apply_style("italic"), _("斜體（Ctrl+I）")),
+                               (_("打勾"), self.insert_checkbox, _("這一行變成打勾清單（- [ ] ），點方框打勾")),
                                (_("指令"), self.insert_code_block, _("插一段可一鍵複製的指令（Ctrl+Shift+C）"))):
             if cmd is None:                          # 分隔線
-                ctk.CTkLabel(bar, text=text, font=T.ui_font(11), text_color=T.TEXT_MUTED, width=10).pack(side="left", padx=2)
+                ctk.CTkLabel(bar, text=text, font=T.ui_font(10), text_color=T.TEXT_MUTED, width=8).pack(side="left", padx=1)
                 continue
-            b = ctk.CTkButton(bar, text=text, width=48, height=26, corner_radius=6, font=T.ui_font(11),
-                              fg_color="transparent", hover_color=T.ROW_HOVER, text_color=T.TEXT, command=cmd)
+            b = ctk.CTkButton(bar, text=text, width=40, height=24, corner_radius=6, font=T.ui_font(10),
+                              fg_color="transparent", hover_color=T.ROW_HOVER, text_color=T.TEXT_MUTED, command=cmd)
             b.pack(side="left", padx=(0, 2))
             _tip(b, tip)
         self.set_format_bar(format_bar, notify=False)
@@ -216,7 +238,8 @@ class Editor(ctk.CTkFrame):
         self.text = ctk.CTkTextbox(
             self, font=self._font, wrap="word", corner_radius=T.RADIUS,
             fg_color=T.EDITOR_BG, text_color=T.TEXT, border_width=1, border_color=T.EDITOR_BORDER,
-            undo=True, maxundo=-1, padx=14, pady=12, spacing3=4,
+            undo=True, maxundo=-1, padx=14, pady=12,
+            spacing1=4, spacing2=3, spacing3=6,     # 行距鬆一點（Peter：擠在一起很呆板）；spacing2 是折行的行距
         )
         self.text.grid(row=2, column=0, sticky="nsew")
         # tag 建立順序＝優先順序（後建的蓋前面的）：區塊底色最低，記號灰字、連結色在上面
@@ -226,7 +249,10 @@ class Editor(ctk.CTkFrame):
         self.text.tag_config(STYLE_TAGS["bold"])
         self.text.tag_config(STYLE_TAGS["italic"])
         self.text.tag_config(MARKER_TAG)
+        self.text.tag_config(DONE_TAG, overstrike=True)
+        self.text.tag_config(TAG_TAG)
         self.text.tag_config(LINK_TAG, underline=True)
+        self.text.tag_config(HIDE_TAG, elide=True)
         self._apply_tag_fonts()
         self._apply_link_color()
         # Caps Lock 開著時 Windows 的 Tk 會送大寫 keysym，所以大小寫都綁，再用 event.state 的 Shift 位元分辨
@@ -246,12 +272,17 @@ class Editor(ctk.CTkFrame):
         self.text.bind("<FocusOut>", lambda _e: self.flush())   # 切到別的視窗就先存，關機也少丟字
         self.text.bind("<Control-v>", self._on_paste)            # 剪貼簿是圖就存成附件並顯示
         self.text.bind("<Button-1>", self._on_click)             # 點圖 → 出現縮放把手
-        self.text.bind("<KeyPress>", lambda _e: self._hide_handle(), add="+")
+        self.text.bind("<KeyPress>", lambda _e: (self._hide_handle(), self._hint.place_forget()), add="+")
+        # 空筆記的提示（Peter：整片白很呆板）：內文空的才顯示，一打字就消失
+        self._hint = tk.Label(self.text._textbox, text=_("直接打字就會自動存。\nCtrl+V 貼截圖、把 .txt／.md 或檔案拖進來也可以。"),
+                              font=(T.UI_FONT_FAMILY, 11), justify="left", bd=0,
+                              fg=self._muted_color(), bg=self.text._textbox.cget("background"))
         self.text.bind("<Motion>", self._on_motion)              # 滑鼠停在連結上 → 顯示完整路徑
         self.text.bind("<Leave>", lambda _e: self._hide_tip())
         for seq in ("<KeyRelease-Left>", "<KeyRelease-Right>", "<KeyRelease-Up>", "<KeyRelease-Down>",
-                    "<KeyRelease-Home>", "<KeyRelease-End>", "<ButtonRelease-1>"):
-            self.text.bind(seq, lambda _e: self._schedule_refresh(), add="+")   # 游標進出折起來的連結要重算
+                    "<KeyRelease-Home>", "<KeyRelease-End>", "<KeyRelease-Prior>", "<KeyRelease-Next>",
+                    "<ButtonRelease-1>"):
+            self.text.bind(seq, lambda _e: self._schedule_refresh(CURSOR_MOVE_MS), add="+")   # 游標換行：藏起來的記號要現形
         self._image_lines: dict = {}
         self._selected_line = None
         self._ell_widgets: list = []
@@ -269,7 +300,8 @@ class Editor(ctk.CTkFrame):
         self.counter = ctk.CTkLabel(foot, text="", font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="w")
         self.counter.grid(row=0, column=0, sticky="w")                  # 左：N 行 · N 字（打字停 0.3 秒更新）
         self.status = ctk.CTkLabel(foot, text="", font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="e")
-        self.status.grid(row=0, column=1, sticky="ew")                  # 右：已儲存／輸入中…
+        self.status.grid(row=0, column=1, sticky="ew")                  # 右：已儲存／輸入中…（已儲存 2.5 秒後淡出）
+        self._fade_job: Optional[str] = None
 
     # ---- 主視窗用 ----
     def set_text(self, text: str, read_only: bool = False) -> None:
@@ -330,7 +362,7 @@ class Editor(ctk.CTkFrame):
 
     def set_font_size(self, size: int) -> None:
         self._font.configure(size=size)
-        self._title_font.configure(size=size + 1)
+        self._title_font.configure(size=size + 6)
         for f in (self._font_bold, self._font_italic, self._font_mono):
             f.configure(size=size)
         self._apply_tag_fonts()
@@ -403,6 +435,30 @@ class Editor(ctk.CTkFrame):
         self.text.focus_set()
         self._on_modified()
 
+    def insert_checkbox(self) -> None:
+        """格式列「打勾」：游標那行（或選到的每一行）行首加「- [ ] 」；已經是打勾清單就拿掉。"""
+        if self.read_only:
+            return
+        tk_text = self.text._textbox
+        try:
+            first = int(tk_text.index("sel.first").split(".")[0])
+            last = int(tk_text.index("sel.last").split(".")[0])
+        except tk.TclError:
+            first = last = int(tk_text.index("insert").split(".")[0])
+        tk_text.tag_remove("sel", "1.0", "end")
+        for ln in range(first, last + 1):
+            line = tk_text.get(f"{ln}.0", f"{ln}.end")
+            cb = markup.checkbox(line)
+            if cb is not None:
+                tk_text.delete(f"{ln}.{_py_to_tk_col(line, cb[0])}", f"{ln}.{_py_to_tk_col(line, cb[1])}")
+            else:
+                indent = len(line) - len(line.lstrip(" \t"))
+                tk_text.insert(f"{ln}.{_py_to_tk_col(line, indent)}", "- [ ] ")
+        if first == last:
+            tk_text.mark_set("insert", f"{first}.end")
+        self.text.focus_set()
+        self._on_modified()
+
     def _style_key(self, kind: str) -> str:
         self.apply_style(kind)
         return "break"                           # 擋掉 tk 自己的 Ctrl+H（退格）、Ctrl+I（插 tab）
@@ -426,10 +482,33 @@ class Editor(ctk.CTkFrame):
                 self.status.configure(text=_("存檔失敗：{0}").format(e))
                 return
             self.last_error = ""
-            self.status.configure(text=_("已儲存 ") + datetime.now().strftime("%H:%M:%S"))
+            self._set_status(_("已儲存 ") + datetime.now().strftime("%H:%M:%S"), fade=True)
 
     def is_dirty(self) -> bool:
         return self._dirty
+
+    STATUS_FADE_AFTER_MS = 2500
+    STATUS_FADE_STEPS = 6
+
+    def _set_status(self, text: str, fade: bool = False) -> None:
+        """右下角那行字。fade=True（已儲存）：停 2.5 秒後慢慢淡掉，不要一直亮著。其他（輸入中、存檔失敗、唯讀）留著。"""
+        if self._fade_job is not None:
+            self.after_cancel(self._fade_job)
+            self._fade_job = None
+        self.status.configure(text=text, text_color=self._muted_color())
+        if fade:
+            self._fade_job = self.after(self.STATUS_FADE_AFTER_MS, lambda: self._fade_status(0))
+
+    def _fade_status(self, step: int) -> None:
+        self._fade_job = None
+        if not self.status.winfo_exists():
+            return
+        if step >= self.STATUS_FADE_STEPS:
+            self.status.configure(text="", text_color=self._muted_color())
+            return
+        bg = T.MAIN_BG[1] if self._dark() else T.MAIN_BG[0]
+        self.status.configure(text_color=_blend(self._muted_color(), bg, (step + 1) / (self.STATUS_FADE_STEPS + 1)))
+        self._fade_job = self.after(70, lambda: self._fade_status(step + 1))
 
     def refresh_theme(self) -> None:
         self._apply_link_color()
@@ -453,7 +532,7 @@ class Editor(ctk.CTkFrame):
         if self.read_only:
             return
         self._dirty = True
-        self.status.configure(text=_("輸入中…"))
+        self._set_status(_("輸入中…"))
         if self._save_timer is not None:
             self.after_cancel(self._save_timer)
         self._save_timer = self.after(AUTOSAVE_MS, self.flush)
@@ -483,6 +562,21 @@ class Editor(ctk.CTkFrame):
         if link:
             self._on_open_link(link)
             return "break"
+        tag = self._tag_at(idx)
+        if tag and self._on_tag is not None:
+            self._on_tag(tag)
+            return "break"
+        return None
+
+    def _tag_at(self, idx: str) -> Optional[str]:
+        """點的位置落在哪個 #標籤上（含 #）；沒有就 None。"""
+        tk_text = self.text._textbox
+        line_no = int(idx.split(".")[0])
+        line = tk_text.get(f"{line_no}.0", f"{line_no}.end")
+        col = len(tk_text.get(f"{line_no}.0", idx))
+        for a, b in markup.tags(line):
+            if a <= col <= b:
+                return line[a:b]
         return None
 
     # ---- 連結 ----
@@ -495,15 +589,16 @@ class Editor(ctk.CTkFrame):
         return links.link_at(line, len(tk_text.get(f"{line_no}.0", idx)))
 
     def _highlight_links(self) -> None:
-        """畫底線、折長連結、畫圖。打字停 300 ms 後跑一次。"""
+        """上色、藏記號、折長連結、放小元件（…、複製、指令標籤、☐）、畫圖。打字停 300 ms 後跑一次。
+        游標所在那一行什麼都不藏（記號現形才能改），其他行只看得到上色後的字。"""
         self._hl_timer = None
         tk_text = self.text._textbox
         was_loading = self._loading
-        self._loading = True                    # 下面插「…」小標籤會觸發 <<Modified>>
+        self._loading = True                    # 下面插小元件會觸發 <<Modified>>
         tk_text.configure(undo=False)           # 重畫的 delete／insert 不能進復原堆疊（Ctrl+Z 會把筆記弄壞）
         try:
-            # 先把上一次的「…」和「複製」拿掉（它們佔一個索引位置，要先清才能用字元位置算）
-            for tag in (ELL_TAG, COPY_TAG):
+            # 先把上一次嵌進去的小元件拿掉（它們佔一個索引位置，要先清才能用字元位置算）
+            for tag in WIDGET_TAGS:
                 ranges = tk_text.tag_ranges(tag)
                 for k in range(len(ranges) - 2, -1, -2):
                     tk_text.delete(ranges[k], ranges[k + 1])
@@ -513,37 +608,71 @@ class Editor(ctk.CTkFrame):
                 except Exception:
                     pass
             self._ell_widgets = []
-            for tag in (LINK_TAG, ELIDE_TAG, MARKER_TAG, CODE_TAG, *STYLE_TAGS.values()):
+            for tag in (LINK_TAG, ELIDE_TAG, HIDE_TAG, MARKER_TAG, CODE_TAG, DONE_TAG, TAG_TAG, *STYLE_TAGS.values()):
                 self.text.tag_remove(tag, "1.0", "end")
             cur_line, cur_col = self._cursor_line_col()
             # 只掃內文（get_text 會多一行標題，行號會差一）
             lines = self.text.get("1.0", "end-1c").split("\n")
             blocks, spans = markup.parse("\n".join(lines))
+            fence_lines = set()
+            for a, b in blocks:
+                fence_lines.add(a)
+                if b > a and markup.is_fence(lines[b]):
+                    fence_lines.add(b)
             for i, line in enumerate(lines, start=1):
+                here = (i == cur_line)
+                c = lambda col, ln=line: _py_to_tk_col(ln, col)
+                hide = (lambda a, b: None) if here else (lambda a, b: self.text.tag_add(HIDE_TAG, f"{i}.{a}", f"{i}.{b}"))
                 ell_at: list[str] = []
-                for s in spans.get(i - 1, ()):   # 記號：先加 tag（欄位用乾淨的那行算），「…」最後才插
-                    c = lambda col, ln=line: _py_to_tk_col(ln, col)
-                    self.text.tag_add(STYLE_TAGS[s.kind], f"{i}.{c(s.inner_start)}", f"{i}.{c(s.inner_end)}")
-                    self.text.tag_add(MARKER_TAG, f"{i}.{c(s.start)}", f"{i}.{c(s.inner_start)}")
-                    self.text.tag_add(MARKER_TAG, f"{i}.{c(s.inner_end)}", f"{i}.{c(s.end)}")
+                head_widget = None                # 行首要放的小元件（☐／指令標籤），最後才插，不然欄位會跑掉
+                for s_ in spans.get(i - 1, ()):   # 記號：加 tag（欄位用乾淨的那行算）
+                    self.text.tag_add(STYLE_TAGS[s_.kind], f"{i}.{c(s_.inner_start)}", f"{i}.{c(s_.inner_end)}")
+                    self.text.tag_add(MARKER_TAG, f"{i}.{c(s_.start)}", f"{i}.{c(s_.inner_start)}")
+                    self.text.tag_add(MARKER_TAG, f"{i}.{c(s_.inner_end)}", f"{i}.{c(s_.end)}")
+                    hide(c(s_.start), c(s_.inner_start))
+                    hide(c(s_.inner_end), c(s_.end))
+                in_code = any(a <= i - 1 <= b for a, b in blocks)
+                link_spans = [(l.start, l.end) for l in links.find_links(line)]
+                if not in_code:                   # #標籤（連結裡的 # 不算）
+                    for ta, tb in markup.tags(line):
+                        if not any(a <= ta < b for a, b in link_spans):
+                            self.text.tag_add(TAG_TAG, f"{i}.{c(ta)}", f"{i}.{c(tb)}")
                 for l in links.find_links(line):
-                    a, b = _py_to_tk_col(line, l.start), _py_to_tk_col(line, l.end)
+                    a, b = c(l.start), c(l.end)
                     self.text.tag_add(LINK_TAG, f"{i}.{a}", f"{i}.{b}")
+                    raw = line[l.start:l.end]
+                    name_end = raw.find("](") if raw.startswith("[") else -1
+                    if name_end > 0 and not here:  # [名稱](路徑){w=…}：只留名稱，其他藏掉
+                        hide(a, a + 1)
+                        hide(c(l.start + name_end), b)
+                        continue
                     shown = l.end - l.start
-                    cursor_inside = (i == cur_line and l.start <= cur_col <= l.end)
+                    cursor_inside = (here and l.start <= cur_col <= l.end)
                     if shown > LINK_SHOW_MAX and not cursor_inside:
-                        ha = _py_to_tk_col(line, l.start + LINK_HEAD)
-                        hb = _py_to_tk_col(line, l.end - LINK_TAIL)
+                        ha = c(l.start + LINK_HEAD)
+                        hb = c(l.end - LINK_TAIL)
                         self.text.tag_add(ELIDE_TAG, f"{i}.{ha}", f"{i}.{hb}")
                         ell_at.append(f"{i}.{ha}")
+                cb = None if in_code else markup.checkbox(line)
+                if cb is not None:                # 打勾清單：「- [ ] 」藏起來換成 ☐／☑；完成的那行劃掉
+                    if cb[2]:
+                        self.text.tag_add(DONE_TAG, f"{i}.{c(cb[1])}", f"{i}.end")
+                    if not here:
+                        hide(c(cb[0]), c(cb[1]))
+                        head_widget = ("check", f"{i}.{c(cb[0])}", cb[2])
+                if (i - 1) in fence_lines and not here:
+                    hide(0, c(len(line)))
                 for idx in reversed(ell_at):    # 從右往左插，左邊的位置才不會跑掉
                     self._insert_ellipsis(idx)
-            for a, b in blocks:                  # ``` 區塊：整段等寬灰底，兩行圍欄淡灰，開頭行尾放「複製」
+                if head_widget is not None:
+                    self._insert_check_widget(head_widget[1], i, head_widget[2])
+            for a, b in blocks:                  # ``` 區塊：整段等寬深底，圍欄行淡灰（游標不在就藏），開頭行放「指令」與「複製」
                 self.text.tag_add(CODE_TAG, f"{a + 1}.0", f"{b + 1}.end")
                 self.text.tag_add(MARKER_TAG, f"{a + 1}.0", f"{a + 1}.end")
                 if b > a and markup.is_fence(lines[b]):
                     self.text.tag_add(MARKER_TAG, f"{b + 1}.0", f"{b + 1}.end")
                 self._insert_copy_button(f"{a + 1}.end", markup.block_text(lines, a, b))
+                self._insert_code_label(f"{a + 1}.0")
             tk_text.edit_modified(False)
         finally:
             tk_text.configure(undo=True)
@@ -551,9 +680,17 @@ class Editor(ctk.CTkFrame):
         self._refresh_images()
         self._update_counter()
 
+    def _update_hint(self, body: str) -> None:
+        if body or self.read_only:
+            self._hint.place_forget()
+        else:
+            self._hint.configure(fg=self._muted_color(), bg=self.text._textbox.cget("background"))
+            self._hint.place(x=4, y=4)
+
     def _update_counter(self) -> None:
         """右下角的行數與字數：內文的行數、不含換行的字元數（空白也算一字）。"""
         body = self.text.get("1.0", "end-1c")
+        self._update_hint(body)
         lines = body.count("\n") + 1 if body else 0
         chars = len(body) - body.count("\n")
         self.counter.configure(text=_("{0} 行 · {1} 字").format(lines, chars))
@@ -577,10 +714,53 @@ class Editor(ctk.CTkFrame):
         tk_text.tag_add(ELL_TAG, idx, f"{idx}+1c")
         self._ell_widgets.append(lbl)
 
+    def _insert_check_widget(self, idx: str, line_no: int, done: bool) -> None:
+        """打勾清單行首的 ☐／☑：點一下就把那行的「[ ]」↔「[x]」換掉（這是使用者的修改，會存檔、可復原）。"""
+        tk_text = self.text._textbox
+        idx = tk_text.index(idx)
+        size = max(10, self._font.cget("size") + 1)
+        lbl = tk.Label(tk_text, text=CHECK_GLYPH[done], font=(T.UI_FONT_FAMILY, size),
+                       fg=self._link_color() if done else self._muted_color(),
+                       bg=tk_text.cget("background"), bd=0, padx=2, cursor="hand2")
+        lbl.bind("<Button-1>", lambda _e, w=lbl: (self._toggle_check(w), "break")[1])
+        tk_text.window_create(idx, window=lbl)
+        tk_text.tag_add(CHECK_TAG, idx, f"{idx}+1c")
+        self._ell_widgets.append(lbl)
+
+    def _toggle_check(self, widget) -> None:
+        if self.read_only:
+            return
+        tk_text = self.text._textbox
+        try:
+            line_no = int(tk_text.index(widget).split(".")[0])
+        except tk.TclError:
+            return
+        line = tk_text.get(f"{line_no}.0", f"{line_no}.end")       # get() 不含嵌進去的元件
+        cb = markup.checkbox(line)
+        if cb is None:
+            return
+        new = markup.toggle_checkbox(line)
+        start = tk_text.index(f"{tk_text.index(widget)}+1c")    # 方框就插在「- [ ] 」前面（search 找不到藏起來的字）
+        tk_text.delete(start, f"{start}+{cb[1] - cb[0]}c")
+        tk_text.insert(start, new[cb[0]:cb[1]])
+        self.text.focus_set()
+        self._on_modified()
+        self._highlight_links()                  # 馬上重畫：☐ 變 ☑，不等 300 ms
+
+    def _insert_code_label(self, idx: str) -> None:
+        """指令區塊開頭那行最前面的小標籤「指令」。"""
+        tk_text = self.text._textbox
+        idx = tk_text.index(idx)
+        lbl = tk.Label(tk_text, text=_("指令"), font=(T.UI_FONT_FAMILY, 9), fg=self._code_muted(),
+                       bg=self._code_bg(), bd=0, padx=4)
+        tk_text.window_create(idx, window=lbl)
+        tk_text.tag_add(LABEL_TAG, idx, f"{idx}+1c")
+        self._ell_widgets.append(lbl)
+
     def _insert_copy_button(self, idx: str, payload: str) -> None:
         tk_text = self.text._textbox
         idx = tk_text.index(idx)                 # 先換成「行.欄」：「N.end」插了按鈕後會指到按鈕後面，tag 就會標到換行字元
-        lbl = tk.Label(tk_text, text=_(" 複製 "), font=(T.UI_FONT_FAMILY, 9), fg=self._muted_color(),
+        lbl = tk.Label(tk_text, text=_(" 複製 "), font=(T.UI_FONT_FAMILY, 9), fg=self._code_muted(),
                        bg=self._code_bg(), bd=0, padx=4, cursor="hand2")
 
         def copy(_e=None, w=lbl):
@@ -645,9 +825,9 @@ class Editor(ctk.CTkFrame):
         self._tip, self._tip_target = None, None
 
     # ---- 圖片顯示 ----
-    def _schedule_refresh(self) -> None:
+    def _schedule_refresh(self, ms: int = HIGHLIGHT_MS) -> None:
         if self._hl_timer is None:
-            self._hl_timer = self.after(HIGHLIGHT_MS, self._highlight_links)
+            self._hl_timer = self.after(ms, self._highlight_links)
 
     def _wanted_images(self) -> list:
         """內文裡每一行指到圖檔的連結：(行號, 絕對路徑, mtime, 使用者指定寬度或 None)。一行只畫第一張。"""
@@ -813,11 +993,19 @@ class Editor(ctk.CTkFrame):
                       command=lambda: self._menu_paste(widget, is_body))
         m.add_separator()
         m.add_command(label=_("全選"), accelerator="Ctrl+A", command=lambda: self._select_all(widget, is_body))
+        if is_body:                                  # 貼到別的地方用：== ** [..](..) ``` 都拿掉
+            m.add_command(label=_("複製成純文字（去掉記號）"), command=lambda: self._copy_plain(widget, has_sel))
         try:
             m.tk_popup(e.x_root, e.y_root)
         finally:
             m.grab_release()
         return "break"
+
+    def _copy_plain(self, widget, has_sel: bool) -> None:
+        text = widget.get("sel.first", "sel.last") if has_sel else widget.get("1.0", "end-1c")
+        self.clipboard_clear()
+        self.clipboard_append(markup.plain(text))
+        self._set_status(_("已複製純文字"), fade=True)
 
     def _menu_paste(self, widget, is_body: bool) -> None:
         if is_body and self._on_paste() == "break":  # 剪貼簿是圖：已經存成附件插進去了
@@ -875,12 +1063,22 @@ class Editor(ctk.CTkFrame):
     def _code_bg(self) -> str:
         return CODE_BG[1] if self._dark() else CODE_BG[0]
 
+    def _code_muted(self) -> str:
+        return CODE_MUTED[1] if self._dark() else CODE_MUTED[0]
+
     def _apply_link_color(self) -> None:
         """跟主題有關的顏色都在這裡：換主題時主視窗會呼叫 refresh_theme → 這裡。"""
         d = 1 if self._dark() else 0
         self.text.tag_config(LINK_TAG, foreground=self._link_color())
         self.text.tag_config(ELIDE_TAG, elide=True)
-        self.text.tag_config(CODE_TAG, background=CODE_BG[d])
+        self.text.tag_config(CODE_TAG, background=CODE_BG[d], foreground=CODE_FG[d],
+                             lmargin1=8, lmargin2=8, rmargin=8)
+        try:                                     # Tk 8.6.6+ 才有：左邊留白也上底色，區塊左緣才是直的
+            self.text._textbox.tag_config(CODE_TAG, lmargincolor=CODE_BG[d])
+        except tk.TclError:
+            pass
         self.text.tag_config(STYLE_TAGS["mark"], background=MARK_BG[d])
         self.text.tag_config(STYLE_TAGS["red"], foreground=RED_FG[d])
         self.text.tag_config(MARKER_TAG, foreground=self._muted_color())
+        self.text.tag_config(DONE_TAG, foreground=self._muted_color())
+        self.text.tag_config(TAG_TAG, foreground=T.ACCENT[d])

@@ -38,11 +38,13 @@ class Sidebar(ctk.CTkFrame):
                  on_add: Callable[[date], None], on_search: Callable[[str], None],
                  on_note_menu: Callable[[NoteId, int, int], None],
                  on_add_pick: Optional[Callable[[], None]] = None,
-                 on_reorder: Optional[Callable[[date, list[int]], None]] = None):
-        """on_add_pick：左下「額外新增」按鈕（主視窗跳月曆選日期再開新筆記）。"""
+                 on_reorder: Optional[Callable[[date, list[int]], None]] = None,
+                 on_day_menu: Optional[Callable[[date, int, int], None]] = None):
+        """on_add_pick：左下「額外新增」按鈕（主視窗跳月曆選日期再開新筆記）。
+        on_day_menu(day, x, y)：日期列按右鍵（主視窗出選單：匯出整天、清整天）。"""
         super().__init__(master, width=T.SIDEBAR_WIDTH, corner_radius=0, fg_color=T.SIDEBAR_BG)
         self._row_font = tkfont.Font(family=T.UI_FONT_FAMILY, size=11)   # 量標題寬度用，跟列的字型一樣
-        self._header_font = tkfont.Font(family=T.UI_FONT_FAMILY, size=10, weight="bold")
+        self._header_font = tkfont.Font(family=T.UI_FONT_FAMILY, size=9)  # 日期列：小一號灰字（Peter：全是方塊很呆板）
         self._width = T.SIDEBAR_WIDTH
         self._row_max_px = self._width - 62              # 列的可用寬：左欄寬減掉兩邊留白（14+4）、字的內距（10+10）、框、捲軸（量過剛好）
         self._titles: dict[NoteId, str] = {}             # 每列的完整標題（寬度改了要重算「…」）
@@ -55,11 +57,13 @@ class Sidebar(ctk.CTkFrame):
         self._on_search = on_search
         self._on_note_menu = on_note_menu
         self._on_reorder = on_reorder
+        self._on_day_menu = on_day_menu
         self.searching = False                   # 主視窗設：目前清單是搜尋結果（過濾過，不給拖拉排序）
         self._press_job = None                   # 長按計時器
         self._drag: Optional[dict] = None        # 拖拉中：{"day", "nid", "lbl", "start"}
         self._selected: Optional[NoteId] = None
-        self._rows: dict[NoteId, tk.Label] = {}
+        self._rows: dict[NoteId, tk.Label] = {}  # 筆記列的字（它的 master 是整列的框：色帶＋字）
+        self._bands: dict[NoteId, tk.Frame] = {} # 每列左邊 3 px 的色帶：選中才上主色
         self._groups: dict[date, list] = {}      # 日期 → [框, 標題列, 箭頭, 日期字, ＋, 筆記列…]（上色、摺疊用）
         self._collapsed: set[date] = set()       # 摺起來的日期
 
@@ -72,9 +76,9 @@ class Sidebar(ctk.CTkFrame):
         imefix.bind(self._search._entry)
 
         if on_add_pick is not None:              # 左下角：先選日期再新增（例如回頭補五月的紀錄）
-            ctk.CTkButton(self, text=_("＋ 額外新增"), font=T.ui_font(12), height=30, corner_radius=T.RADIUS,
-                          fg_color="transparent", border_width=1, text_color=T.TEXT, hover_color=T.ROW_HOVER,
-                          command=on_add_pick).grid(row=2, column=0, sticky="ew", padx=8, pady=(4, T.PAD))
+            ctk.CTkButton(self, text=_("＋ 額外新增"), font=T.ui_font(12), height=30, corner_radius=6, anchor="w",
+                          fg_color="transparent", border_width=0, text_color=T.TEXT_MUTED, hover_color=T.ROW_HOVER,
+                          command=on_add_pick).grid(row=2, column=0, sticky="ew", padx=12, pady=(4, 8))   # 平的，不加框（Peter：有框很奇怪）
 
         self._list = ctk.CTkScrollableFrame(self, fg_color="transparent", corner_radius=0)
         self._list.grid(row=1, column=0, sticky="nsew", padx=(2, 0))
@@ -92,6 +96,7 @@ class Sidebar(ctk.CTkFrame):
                 w.destroy()
         self._empty.grid_forget()
         self._rows.clear()
+        self._bands.clear()
         self._titles.clear()
         self._selected = selected
         if not groups:
@@ -104,6 +109,7 @@ class Sidebar(ctk.CTkFrame):
         self._muted = _c(T.TEXT_MUTED)
         self._header = _c(T.DAY_HEADER)
         self._day_bg = _c(T.DAY_ACTIVE_BG)
+        self._sel_bg = _c(T.ROW_SELECTED_BG)
         self._groups.clear()
         row = 0
         for day, refs in groups.items():
@@ -164,7 +170,7 @@ class Sidebar(ctk.CTkFrame):
     LONG_PRESS_MS = 350
 
     def _day_labels(self, day: date) -> list:
-        """這一天的筆記列（照目前畫面上的順序）。groups[day] = [框, 標題列, 箭頭, 日期字, ＋, 筆記列…]。"""
+        """這一天的筆記列的框（照目前畫面上的順序）。groups[day] = [框, 標題列, 箭頭, 日期字, ＋, 筆記列…]。"""
         return list(self._groups.get(day, [])[5:])
 
     def _press(self, e, nid: NoteId, lbl) -> None:
@@ -172,7 +178,7 @@ class Sidebar(ctk.CTkFrame):
         self._cancel_press()
         if self._on_reorder is None or self.searching or self._search.get().strip():
             return                               # 搜尋中清單是過濾過的，不給排
-        self._press_job = self.after(self.LONG_PRESS_MS, lambda: self._start_drag(nid, lbl))
+        self._press_job = self.after(self.LONG_PRESS_MS, lambda: self._start_drag(nid, lbl.master))   # 拖的是整列的框
 
     def _cancel_press(self) -> None:
         if self._press_job is not None:
@@ -186,6 +192,8 @@ class Sidebar(ctk.CTkFrame):
         self._drag = {"day": nid.day, "nid": nid, "lbl": lbl,
                       "start": [w for w in self._day_labels(nid.day)]}
         lbl.configure(cursor="fleur", relief="raised", bd=1)
+        for child in lbl.winfo_children():
+            child.configure(cursor="fleur")
 
     def _drag_motion(self, e) -> None:
         if self._drag is None:
@@ -205,10 +213,12 @@ class Sidebar(ctk.CTkFrame):
         if self._drag is None:
             return
         d, self._drag = self._drag, None
-        d["lbl"].configure(cursor="hand2", relief="flat", bd=0)
+        d["lbl"].configure(cursor="arrow", relief="flat", bd=0)
+        for child in d["lbl"].winfo_children():
+            child.configure(cursor="hand2")
         labels = self._day_labels(d["day"])
         if labels != d["start"] and self._on_reorder is not None:
-            seq_of = {w: n.seq for n, w in self._rows.items()}
+            seq_of = {w.master: n.seq for n, w in self._rows.items()}   # 列的框 → 編號
             self._on_reorder(d["day"], [seq_of[w] for w in labels if w in seq_of])
 
     def toggle_day(self, day: date) -> None:
@@ -238,6 +248,19 @@ class Sidebar(ctk.CTkFrame):
         self._search.delete(0, "end")
         self._on_search("")
 
+    def focus_search(self) -> None:
+        """Ctrl+F：游標跳到搜尋框（字全選，直接打就蓋掉）。"""
+        self._search.focus_set()
+        self._search._entry.select_range(0, "end")
+
+    def set_search(self, text: str) -> None:
+        """主視窗叫的：把字放進搜尋框並馬上搜（Ctrl+點 #標籤）。"""
+        self._search.delete(0, "end")
+        self._search.insert(0, text)
+        if self._search_timer is not None:
+            self.after_cancel(self._search_timer); self._search_timer = None
+        self._on_search(text)
+
     def _search_debounced(self, _e=None) -> None:
         if self._search_timer is not None:
             self.after_cancel(self._search_timer)
@@ -250,16 +273,24 @@ class Sidebar(ctk.CTkFrame):
         return self._day_bg if (self._selected is not None and self._selected.day == day) else self._bg
 
     def _paint(self, lbl: tk.Label, selected: bool) -> None:
+        """一列的顏色：選中＝左邊主色色帶＋淡底＋主色字；沒選中＝跟那一天的底色一樣。"""
         nid = next((n for n, w in self._rows.items() if w is lbl), None)
-        bg = self._accent if selected else self._day_bg_of(nid.day) if nid else self._bg
-        lbl.configure(bg=bg, fg="#ffffff" if selected else self._fg)
+        bg = self._sel_bg if selected else self._day_bg_of(nid.day) if nid else self._bg
+        lbl.configure(bg=bg, fg=self._accent if selected else self._fg,
+                      font=(T.UI_FONT_FAMILY, 11, "bold" if selected else "normal"))
+        lbl.master.configure(bg=bg)
+        if nid in self._bands:
+            self._bands[nid].configure(bg=self._accent if selected else bg)
 
     def _paint_day(self, day: date) -> None:
         bg = self._day_bg_of(day)
+        sel_lbl = self._rows.get(self._selected)
         for w in self._groups.get(day, ()):
-            if w is self._rows.get(self._selected):
-                continue                             # 選中那張維持藍色
+            if sel_lbl is not None and w is sel_lbl.master:
+                continue                             # 選中那列另外上色（_paint）
             w.configure(bg=bg)
+            for child in w.winfo_children():         # 列的框裡面：色帶、字
+                child.configure(bg=bg)
 
     def _apply_collapse(self, day: date) -> None:
         widgets = self._groups.get(day)
@@ -281,24 +312,41 @@ class Sidebar(ctk.CTkFrame):
         from ..storage import TODO_DAY
         is_todo = day == TODO_DAY
         label = T.fmt_day(day)
-        if day == date.today():
-            label += _(" 今天")
+        is_today = day == date.today()
+        if is_today:
+            label = "● " + label + _(" 今天")              # 今天：主色加一個點，其他天小灰字
         self._header_titles[day] = label
         arrow = tk.Label(bar, text="▾", bg=self._bg, fg=self._muted, font=(T.UI_FONT_FAMILY, 9), cursor="hand2", padx=2)
         arrow.grid(row=0, column=0, sticky="w")
         title = tk.Label(bar, text=self._elide_header(label), bg=self._bg,
-                         fg=_c(T.DANGER) if is_todo else self._header,          # 待辦事項：紅字
-                         font=(T.UI_FONT_FAMILY, 10, "bold"), anchor="w", cursor="hand2")
+                         fg=_c(T.DANGER) if is_todo else self._accent if is_today else self._muted,   # 待辦事項：紅字
+                         font=(T.UI_FONT_FAMILY, 9, "bold" if (is_todo or is_today) else "normal"), anchor="w", cursor="hand2")
         title.grid(row=0, column=1, sticky="w")
         for w in (arrow, title, bar):
             w.bind("<Button-1>", lambda _e, d=day: self.toggle_day(d))
-        plus = tk.Label(bar, text="" if is_todo else _("＋"), bg=self._bg, fg=self._muted, font=(T.UI_FONT_FAMILY, 11),
+            if self._on_day_menu is not None and not is_todo:
+                w.bind("<Button-3>", lambda e, d=day: self._on_day_menu(d, e.x_root, e.y_root))
+        # ＋ 平常藏著，滑鼠滑到這一列才出現（Peter：平常乾淨一點）；寬度先佔好，出現時列不會跳
+        plus = tk.Label(bar, text="", bg=self._bg, fg=self._muted, font=(T.UI_FONT_FAMILY, 11), width=2,
                         cursor="arrow" if is_todo else "hand2", padx=6)   # 待辦事項只有一張，不給新增
         plus.grid(row=0, column=2, sticky="e", padx=(0, 4))
         if not is_todo:
             plus.bind("<Button-1>", lambda _e, d=day: self._on_add(d))
-        plus.bind("<Enter>", lambda _e, w=plus: w.configure(fg=self._fg))
-        plus.bind("<Leave>", lambda _e, w=plus: w.configure(fg=self._muted))
+            state = {"job": None}
+
+            def show(_e=None):
+                if state["job"] is not None:
+                    self.after_cancel(state["job"]); state["job"] = None
+                if plus.winfo_exists():
+                    plus.configure(text=_("＋"))
+
+            def hide_later(_e=None):           # 從標題字移到 ＋ 會先 Leave 再 Enter，延遲一下才不會閃
+                if state["job"] is None:
+                    state["job"] = self.after(150, lambda: (state.update(job=None),
+                                                            plus.winfo_exists() and plus.configure(text="")))
+            for w in (bar, arrow, title, plus):
+                w.bind("<Enter>", show, add="+")
+                w.bind("<Leave>", hide_later, add="+")
         return [bar, arrow, title, plus]
 
     def _elide_header(self, text: str) -> str:
@@ -320,10 +368,15 @@ class Sidebar(ctk.CTkFrame):
                 hi = mid - 1
         return text[:lo] + "…"
 
-    def _note_row(self, box: tk.Frame, ref: NoteRef, row: int) -> tk.Label:
-        lbl = tk.Label(box, text=self._elide(ref.title), bg=self._bg, fg=self._fg, font=(T.UI_FONT_FAMILY, 11),
-                       anchor="w", padx=10, pady=5, cursor="hand2")
-        lbl.grid(row=row, column=0, sticky="ew", padx=(14, 4), pady=1)
+    def _note_row(self, box: tk.Frame, ref: NoteRef, row: int) -> tk.Frame:
+        """一列＝框（色帶 3 px ＋ 標題字）。回傳框（排順序、摺疊用）；字放在 _rows、色帶放在 _bands。"""
+        frame = tk.Frame(box, bg=self._bg)
+        frame.grid(row=row, column=0, sticky="ew", padx=(10, 4), pady=1)
+        band = tk.Frame(frame, width=3, bg=self._bg)
+        band.pack(side="left", fill="y")
+        lbl = tk.Label(frame, text=self._elide(ref.title), bg=self._bg, fg=self._fg, font=(T.UI_FONT_FAMILY, 11),
+                       anchor="w", padx=8, pady=5, cursor="hand2")
+        lbl.pack(side="left", fill="x", expand=True)
         lbl.bind("<Button-1>", lambda e, n=ref.id, w=lbl: self._press(e, n, w))
         lbl.bind("<B1-Motion>", self._drag_motion)
         lbl.bind("<ButtonRelease-1>", self._release)
@@ -331,5 +384,6 @@ class Sidebar(ctk.CTkFrame):
         lbl.bind("<Enter>", lambda _e, w=lbl, n=ref.id: w.configure(bg=self._hover) if n != self._selected else None)
         lbl.bind("<Leave>", lambda _e, w=lbl, n=ref.id: w.configure(bg=self._day_bg_of(n.day)) if n != self._selected else None)
         self._rows[ref.id] = lbl
+        self._bands[ref.id] = band
         self._titles[ref.id] = ref.title
-        return lbl
+        return frame
