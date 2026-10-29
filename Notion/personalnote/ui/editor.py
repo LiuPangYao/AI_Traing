@@ -129,7 +129,11 @@ def _tip(widget, text: str) -> None:
         if state["win"] is not None:
             state["win"].destroy(); state["win"] = None
 
-    widget.bind("<Enter>", lambda _e: state.__setitem__("job", widget.after(600, show)), add="+")
+    def arm(*_):                                   # *_：CTk 有些地方會不帶 event 呼叫綁定的函式
+        if state["job"] is None and widget.winfo_exists():
+            state["job"] = widget.after(600, show)
+
+    widget.bind("<Enter>", arm, add="+")
     widget.bind("<Leave>", hide, add="+")
     widget.bind("<Button-1>", hide, add="+")
 

@@ -72,6 +72,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if not _single_instance():
+        applog.info("已經有一個在跑（或上一個卡在錯誤框還沒關），這個退出")   # 不然第二次點沒反應，log 也看不出為什麼
         return 0
 
     try:

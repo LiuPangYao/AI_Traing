@@ -5,3 +5,6 @@ __pycache__/
 *.spec
 build.log
 *.pyc
+build_out.txt
+full_check.txt
+final_round*.txt

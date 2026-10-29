@@ -41,9 +41,11 @@ class Sidebar(ctk.CTkFrame):
         """on_add_pick：左下「額外新增」按鈕（主視窗跳月曆選日期再開新筆記）。"""
         super().__init__(master, width=T.SIDEBAR_WIDTH, corner_radius=0, fg_color=T.SIDEBAR_BG)
         self._row_font = tkfont.Font(family=T.UI_FONT_FAMILY, size=11)   # 量標題寬度用，跟列的字型一樣
+        self._header_font = tkfont.Font(family=T.UI_FONT_FAMILY, size=10, weight="bold")
         self._width = T.SIDEBAR_WIDTH
         self._row_max_px = self._width - 62              # 列的可用寬：左欄寬減掉兩邊留白（14+4）、字的內距（10+10）、框、捲軸（量過剛好）
         self._titles: dict[NoteId, str] = {}             # 每列的完整標題（寬度改了要重算「…」）
+        self._header_titles: dict[date, str] = {}        # 每天標題列的完整字（英文 2026/10/29 (Thu) Today 較長，窄的時候要「…」）
         self.grid_propagate(False)
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -147,6 +149,11 @@ class Sidebar(ctk.CTkFrame):
             text = self._elide(self._titles.get(nid, lbl.cget("text")))
             if lbl.cget("text") != text:
                 lbl.configure(text=text)
+        for day, widgets in self._groups.items():        # 日期標題列也重算
+            title = widgets[3]
+            text = self._elide_header(self._header_titles.get(day, title.cget("text")))
+            if title.cget("text") != text:
+                title.configure(text=text)
 
     def toggle_day(self, day: date) -> None:
         """點日期標題：摺疊／展開那一天的筆記列。摺疊狀態只記在這個視窗裡（重開就全展開）。"""
@@ -218,9 +225,10 @@ class Sidebar(ctk.CTkFrame):
         label = T.fmt_day(day)
         if day == date.today():
             label += _(" 今天")
+        self._header_titles[day] = label
         arrow = tk.Label(bar, text="▾", bg=self._bg, fg=self._muted, font=(T.UI_FONT_FAMILY, 9), cursor="hand2", padx=2)
         arrow.grid(row=0, column=0, sticky="w")
-        title = tk.Label(bar, text=label, bg=self._bg, fg=self._header, font=(T.UI_FONT_FAMILY, 10, "bold"),
+        title = tk.Label(bar, text=self._elide_header(label), bg=self._bg, fg=self._header, font=(T.UI_FONT_FAMILY, 10, "bold"),
                          anchor="w", cursor="hand2")
         title.grid(row=0, column=1, sticky="w")
         for w in (arrow, title, bar):
@@ -232,14 +240,20 @@ class Sidebar(ctk.CTkFrame):
         plus.bind("<Leave>", lambda _e, w=plus: w.configure(fg=self._muted))
         return [bar, arrow, title, plus]
 
-    def _elide(self, text: str) -> str:
+    def _elide_header(self, text: str) -> str:
+        """日期標題列可用寬 = 左欄寬 − 箭頭(16) − ＋(32) − 捲軸與留白(24)。"""
+        return self._elide(text, self._header_font, self._width - 72)
+
+    def _elide(self, text: str, font=None, max_px: Optional[int] = None) -> str:
         """標題太長就切掉尾巴加「…」（tk.Label 不會自己省略，只會硬切）。"""
-        if self._row_font.measure(text) <= self._row_max_px:
+        font = font or self._row_font
+        max_px = self._row_max_px if max_px is None else max_px
+        if font.measure(text) <= max_px:
             return text
         lo, hi = 0, len(text)
         while lo < hi:                           # 二分找最長放得下的前綴
             mid = (lo + hi + 1) // 2
-            if self._row_font.measure(text[:mid] + "…") <= self._row_max_px:
+            if font.measure(text[:mid] + "…") <= max_px:
                 lo = mid
             else:
                 hi = mid - 1

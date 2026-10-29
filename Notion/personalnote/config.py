@@ -127,6 +127,8 @@ def _from_file(note_dir: Path) -> dict[str, Any]:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
+    if not isinstance(data, dict):               # 檔案被改成 [] 或 "x" 之類的：當沒有，不要炸
+        return {}
     return {k: data.get(k) for k in Settings.PERSISTED}
 
 

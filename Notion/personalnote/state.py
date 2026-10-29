@@ -19,7 +19,7 @@ STATE_FILE = "state.json"
 class AppState:
     geometry: str = "720x640+240+120"   # tkinter 格式 WxH+X+Y；便利貼大小，不是全螢幕（太窄工具列圖示、日期標題會被截）
     sidebar_visible: bool = True
-    sidebar_width: int = 220            # 左欄寬度（拖分隔線改的；範圍見 theme.SIDEBAR_MIN／MAX）
+    sidebar_width: int = 240            # 左欄寬度（拖分隔線改的；範圍見 theme.SIDEBAR_MIN／MAX；預設跟 theme.SIDEBAR_WIDTH 一樣）
     format_bar: bool = False            # 內文上方的格式列（重點／紅字／粗體…）展開著嗎；預設收起來，不常用
     last_day: Optional[str] = None      # ISO 日期字串
 

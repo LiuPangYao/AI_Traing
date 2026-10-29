@@ -36,16 +36,29 @@ for /f "tokens=4-5 delims=. " %%i in ('ver') do set WINVER=%%i.%%j
 if "%WINVER%"=="6.1" goto :oldwin
 if "%WINVER%"=="6.2" goto :oldwin
 if "%WINVER%"=="6.0" goto :oldwin
-set PYW=%LOCALAPPDATA%\Programs\Python\Python312\pythonw.exe
-if not exist "%PYW%" set PYW=pythonw
 if exist "%~dp0dist\Notion.exe" (
     start "" "%~dp0dist\Notion.exe" %*
-) else if exist "%~dp0Notion.exe" (
-    start "" "%~dp0Notion.exe" %*
-) else (
-    rem 沒有 exe 就用 Python 原始碼跑（開發用）
-    start "" "%PYW%" -m personalnote %*
+    exit /b 0
 )
+if exist "%~dp0Notion.exe" (
+    start "" "%~dp0Notion.exe" %*
+    exit /b 0
+)
+rem 這裡是原始碼資料夾（clone 下來的）：沒有 exe，用 Python 跑。先檢查 Python 與套件，缺了就講清楚
+set PY=%LOCALAPPDATA%\Programs\Python\Python312\python.exe
+if not exist "%PY%" set PY=python
+"%PY%" -c "import sys; assert sys.version_info >= (3, 11)" 2>nul || (
+    echo 這是原始碼資料夾，沒有打包好的 Notion.exe。要直接用請拿打包好的 zip；
+    echo 要從原始碼跑需要 Python 3.11 以上：https://www.python.org/downloads/
+    pause & exit /b 1
+)
+"%PY%" -c "import customtkinter, PIL" 2>nul || (
+    echo 這是原始碼資料夾，還沒裝套件。請先執行：
+    echo     "%PY%" -m pip install -r requirements.txt
+    echo 或者直接用打包好的 zip（build_exe.bat 可以自己打包）。
+    pause & exit /b 1
+)
+"%PY%" -X utf8 -m personalnote %*
 exit /b 0
 :oldwin
 echo 這台是 Windows %WINVER%（7 或 8.0），Notion 需要 Windows 8.1 以上（建議 10／11）。

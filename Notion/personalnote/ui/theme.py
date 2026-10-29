@@ -19,7 +19,7 @@ DANGER = ("#d9534f", "#e06c66")
 
 PAD = 10
 RADIUS = 10
-SIDEBAR_WIDTH = 220          # 預設寬；要放得下「2026/10/29（四） 今天」加「＋」
+SIDEBAR_WIDTH = 240          # 預設寬；要放得下英文的「2026/10/29 (Thu) Today」加「＋」（中文較短）
 SIDEBAR_MIN, SIDEBAR_MAX = 180, 480   # 拖分隔線能拖到的範圍（再窄日期標題會被切）
 MIN_FONT, MAX_FONT = 8, 48
 

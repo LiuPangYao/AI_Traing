@@ -116,6 +116,7 @@ class MainWindow(ctk.CTk):
         """換語言：手上這張先存，砍掉所有元件重畫，再把同一張開回來。設定面板開著就關掉（它也是舊語言畫的）。"""
         self.editor.flush()
         current = self.current
+        self.state_ = self.state_.with_(sidebar_width=self.sidebar._width)   # 重畫用目前的寬，不是上次存檔的
         p = getattr(self, "_settings_panel", None)
         if p is not None and p.winfo_exists():
             p.destroy()
@@ -590,7 +591,8 @@ class MainWindow(ctk.CTk):
     def _save_state(self) -> None:
         """隨手存狀態（Windows 直接關機時不會走 _on_close，所以不能只靠關閉時存）。"""
         try:
-            self.state_ = self.state_.with_(geometry=self.geometry(), last_day=self.current_day.isoformat())
+            self.state_ = self.state_.with_(geometry=self.geometry(), last_day=self.current_day.isoformat(),
+                                            sidebar_width=self.sidebar._width)
             self.state_.save(self.store.root)
         except Exception:
             pass
@@ -777,7 +779,7 @@ class SettingsPanel(ctk.CTkToplevel):
         _quiet_dialog(self)                          # 不閃：見 _quiet_dialog 的說明
         self.geometry(f"+{win.winfo_rootx() + 40}+{win.winfo_rooty() + 60}")
         # 內容放在可捲動的框裡：螢幕矮（筆電 768）時面板比螢幕高，不捲就看不到底下的按鈕
-        self.body = ctk.CTkScrollableFrame(self, width=430, fg_color="transparent")
+        self.body = ctk.CTkScrollableFrame(self, width=560, fg_color="transparent")   # 英文字串比中文長，430 會切到按鈕
         self.body.pack(fill="both", expand=True)
         self.body.grid_columnconfigure(1, weight=1)
         pad = dict(padx=16, pady=6)
@@ -787,7 +789,7 @@ class SettingsPanel(ctk.CTkToplevel):
                   if os.environ.get(k, "").strip()]
         if locked:                                   # Notion.bat 有填值：那幾項這裡改了下次用 bat 開會被蓋回去
             ctk.CTkLabel(self.body, text=_("Notion.bat 裡有填：") + "、".join(locked) + _("。這幾項以 .bat 為準，這裡改了下次用 .bat 開會被蓋回去；要在這裡改就把 .bat 裡那行留空。"),
-                         font=T.ui_font(11), text_color=T.DANGER, wraplength=420, justify="left").grid(
+                         font=T.ui_font(11), text_color=T.DANGER, wraplength=520, justify="left").grid(
                 row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=(10, 0)); self._r += 1
 
         self._section(_("外觀"))
@@ -825,8 +827,8 @@ class SettingsPanel(ctk.CTkToplevel):
         else:                                    # Windows：讓使用者自己放捷徑（公司機器常擋 PowerShell／COM，程式不代勞）
             row = ctk.CTkFrame(self.body, fg_color="transparent")
             ctk.CTkLabel(row, text=_("開機自動啟動：把 Notion.bat 的捷徑放進 Windows 的「啟動」資料夾（右邊按鈕會開那個資料夾）。"),
-                         font=T.ui_font(11), text_color=T.TEXT_MUTED, justify="left", anchor="w", wraplength=300).pack(side="left", fill="x", expand=True)
-            ctk.CTkButton(row, text=_("開啟啟動資料夾"), font=T.ui_font(11), width=100, height=24, fg_color="transparent",
+                         font=T.ui_font(11), text_color=T.TEXT_MUTED, justify="left", anchor="w", wraplength=380).pack(side="left", fill="x", expand=True)
+            ctk.CTkButton(row, text=_("開啟啟動資料夾"), font=T.ui_font(11), width=150, height=24, fg_color="transparent",
                           border_width=1, text_color=T.TEXT,
                           command=lambda: platform_.open_folder(platform_.startup_folder())).pack(side="right", padx=(8, 0))
             self._full(row, pady=2)
@@ -844,7 +846,7 @@ class SettingsPanel(ctk.CTkToplevel):
 
         self._section(_("存檔位置"))
         self.dir_lbl = ctk.CTkLabel(self.body, text=str(win.store.root), font=T.ui_font(11),
-                                    text_color=T.TEXT_MUTED, wraplength=400, justify="left", anchor="w")
+                                    text_color=T.TEXT_MUTED, wraplength=520, justify="left", anchor="w")
         self._full(self.dir_lbl, pady=(0, 2))
         btns = ctk.CTkFrame(self.body, fg_color="transparent")
         ctk.CTkButton(btns, text=_("開啟資料夾"), font=T.ui_font(12), width=96,
@@ -854,7 +856,7 @@ class SettingsPanel(ctk.CTkToplevel):
         ctk.CTkButton(btns, text=_("垃圾桶"), font=T.ui_font(12), width=70, fg_color="transparent",
                       border_width=1, text_color=T.TEXT,
                       command=lambda: platform_.open_folder(win.store.root / ".app" / "trash")).pack(side="left", padx=6)
-        ctk.CTkButton(btns, text=_("還原上一次刪除"), font=T.ui_font(12), width=110, fg_color="transparent",
+        ctk.CTkButton(btns, text=_("還原上一次刪除"), font=T.ui_font(12), width=150, fg_color="transparent",
                       border_width=1, text_color=T.TEXT, command=win.restore_last_deleted).pack(side="left")
         self._full(btns)
 
@@ -862,11 +864,11 @@ class SettingsPanel(ctk.CTkToplevel):
         io_row = ctk.CTkFrame(self.body, fg_color="transparent")
         for text, cmd in ((_("匯出這張…"), win.export_note), (_("匯出全部…"), win.export_all),
                           (_("匯入檔案…"), win.import_files), (_("匯入資料夾…"), win.import_folder)):
-            ctk.CTkButton(io_row, text=text, font=T.ui_font(12), width=92, fg_color="transparent",
+            ctk.CTkButton(io_row, text=text, font=T.ui_font(12), width=118, fg_color="transparent",
                           border_width=1, text_color=T.TEXT, command=cmd).pack(side="left", padx=(0, 6))
         self._full(io_row)
         ctk.CTkLabel(self.body, text=_("匯入的筆記接在那一天後面編號，不會蓋掉既有的；換電腦前先「匯出全部」。"),
-                     font=T.ui_font(11), text_color=T.TEXT_MUTED, wraplength=420, justify="left").grid(
+                     font=T.ui_font(11), text_color=T.TEXT_MUTED, wraplength=520, justify="left").grid(
             row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=(0, 4)); self._r += 1
 
         self._section(_("快捷鍵"))
@@ -880,7 +882,7 @@ class SettingsPanel(ctk.CTkToplevel):
                             (_("筆記的舊版本 history／垃圾桶 trash／畫面錯誤 error.log"), win.store.root / ".app")):
             row = ctk.CTkFrame(self.body, fg_color="transparent")
             ctk.CTkLabel(row, text=f"{what}\n{where}", font=T.ui_font(11), text_color=T.TEXT_MUTED,
-                         justify="left", anchor="w", wraplength=330).pack(side="left", fill="x", expand=True)
+                         justify="left", anchor="w", wraplength=460).pack(side="left", fill="x", expand=True)
             ctk.CTkButton(row, text=_("開啟"), font=T.ui_font(11), width=50, height=24, fg_color="transparent",
                           border_width=1, text_color=T.TEXT,
                           command=lambda d=where: platform_.open_folder(d)).pack(side="right", padx=(8, 0))
@@ -916,7 +918,7 @@ class SettingsPanel(ctk.CTkToplevel):
         for i, (key, what) in enumerate(self.SHORTCUTS):
             ctk.CTkLabel(tbl, text=_(key), font=T.ui_font(11, "bold"), anchor="w").grid(
                 row=i, column=0, sticky="w", padx=(0, 14), pady=1)
-            ctk.CTkLabel(tbl, text=_(what), font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="w").grid(
+            ctk.CTkLabel(tbl, text=_(what), font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="w", justify="left", wraplength=340).grid(
                 row=i, column=1, sticky="w", pady=1)
         tbl.grid(row=self._r, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 4)); self._r += 1
 
