@@ -1,8 +1,8 @@
-> **公開版說明（Public copy notice）**
-> 這份是 Notion（本機便利貼工具）的**架構與程式碼分享**，由企劃／PM 角度整理；不含任何公司資訊、專案資料或使用者筆記。
-> 這個副本只供參考，**請勿直接在這裡修改**：原始碼在維護者的本機維護，改好後整份同步過來（tools/sync_public_copy.py）。
-> This folder shares the architecture and source of a local sticky-notes tool for reference only. It contains no company data.
-> Do not edit this copy directly; changes are made upstream and synced here.
+> **公開版說明（Public notice）**
+> 這是 Notion（本機便利貼工具）的**架構與程式碼**，由企劃／PM 角度整理後公開分享；不含任何公司資訊、專案資料或使用者筆記。
+> 這裡就是原始碼的維護位置（2026-10-29 起）。改程式前請先讀下面「給接手維護的人」；提交前跑 `python tools/check_public_words.py`，
+> 確認沒有公司／專案字眼混進來。研發紀錄（含決策理由）另存於維護者本機，不在這個 repo。
+> This folder holds the architecture and source of a local sticky-notes tool, shared for reference. It contains no company data.
 
 # Notion 1.0.1（原名 PersonalNote，2026-10-29 改名）
 
@@ -168,7 +168,7 @@ Notion.sh、build_linux.sh    Linux 啟動／打包（寫好但沒有 Linux 機�
   2. `editor.py` 一行文字有三套位置：Python 字元位置（links.py）、Tk index（emoji 算 2 格，`_py_to_tk_col`）、`get()` 的文字（不含「…」標籤與圖那個字元）。改底線／折疊／圖片時，位置一律用 `get()` 的文字數字元，再換成 Tk index。
   3. `storage.py` 的索引與標題快取只在自己 `save()/delete()` 時更新；別的程式改了檔案，要等視窗重新取得焦點（`refresh_if_changed`，比對每個檔的 mtime）才會重掃。新功能若直接寫檔，記得呼叫 `_touch(day)`。
   4. 加一個設定要改 7 處（`config.py` 檔頭有清單），漏一處會靜默失效。
-- 這個資料夾不是 git 版本庫（公司 ai study 資料夾的慣例）。接手時建議先 `git init`，夾具與相容契約才有人守。
+- 這個資料夾在公開 repo `LiuPangYao/AI_Traing` 的 `Notion/` 底下（2026-10-29 起是唯一的原始碼位置）；研發紀錄（TIPS 用）不在 repo，在維護者本機 `D:\AI\ai study\code\PersonalNote\研發紀錄.md`。
 
 ### 升級規則（1.0.1 以後一定要遵守，不然舊筆記打不開）
 
