@@ -168,7 +168,7 @@ Notion.sh、build_linux.sh    Linux 啟動／打包（寫好但沒有 Linux 機�
   2. `editor.py` 一行文字有三套位置：Python 字元位置（links.py）、Tk index（emoji 算 2 格，`_py_to_tk_col`）、`get()` 的文字（不含「…」標籤與圖那個字元）。改底線／折疊／圖片時，位置一律用 `get()` 的文字數字元，再換成 Tk index。
   3. `storage.py` 的索引與標題快取只在自己 `save()/delete()` 時更新；別的程式改了檔案，要等視窗重新取得焦點（`refresh_if_changed`，比對每個檔的 mtime）才會重掃。新功能若直接寫檔，記得呼叫 `_touch(day)`。
   4. 加一個設定要改 7 處（`config.py` 檔頭有清單），漏一處會靜默失效。
-- 這個資料夾在公開 repo `LiuPangYao/AI_Traing` 的 `Notion/` 底下（2026-10-29 起是唯一的原始碼位置）；研發紀錄（TIPS 用）不在 repo，在維護者本機 `D:\AI\ai study\code\PersonalNote\研發紀錄.md`。
+- 這個資料夾在公開 repo `LiuPangYao/AI_Traing` 的 `Notion/` 底下（2026-10-29 起是唯一的原始碼位置）；研發紀錄只留在維護者本機，不進 repo。
 
 ### 升級規則（1.0.1 以後一定要遵守，不然舊筆記打不開）
 
