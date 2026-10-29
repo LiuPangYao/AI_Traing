@@ -35,13 +35,14 @@ from .i18n import _
 from .config import APP_SUBDIR
 
 DAY_DIR_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
-NOTE_FILE_RE = re.compile(r"^(\d{3})\.(md|note)$")
+NOTE_FILE_RE = re.compile(r"^(\d{3,})\.(md|note)$")      # 至少 3 位，第 1000 張是 1000.note
 EXT_PLAIN, EXT_ENC = ".md", ".note"
 ATTACH_DIR = "attachments"
 TRASH_DIR = "trash"
 TITLE_MAX = 28
 EMPTY_TITLE = "（空白）"
 UNREADABLE_TITLE = "（解不開）"
+NEWER_TITLE = "（較新版本的格式）"
 UNREADABLE_TEXT = ("# （解不開）\n這張筆記是別台電腦或別的 Windows 帳號加密的，這裡解不開。\n"
                    "回到原來那台電腦，在設定裡「匯出全部」再搬過來。")
 NEWER_FORMAT_TEXT = ("# （較新版本的格式）\n這張筆記是比這個程式更新的版本寫的，這個版本看不懂。\n"
@@ -89,7 +90,7 @@ def title_of(text: str) -> str:
     title, body = split_title(text)
     if not title:
         for line in body.splitlines():
-            s = _LIST_MARK_RE.sub("", line).strip()
+            s = _LIST_MARK_RE.sub("", line).lstrip("# ").strip()   # 內文第一行若是「# xx」，左欄不要連井字一起顯示
             if s:
                 title = s
                 break
@@ -198,6 +199,8 @@ class NoteStore:
     def _clean_tmp(self) -> None:
         """上次寫到一半的 .tmp 清掉（正式檔一定完整，因為改名是最後一步）。"""
         for p in self.root.glob("*/*.tmp"):
+            if _parse_day(p.parent) is None:     # 只清日期資料夾的；attachments／.app 裡的 .tmp 可能是使用者的檔
+                continue
             try:
                 p.unlink()
             except OSError:
@@ -213,6 +216,8 @@ class NoteStore:
         try:
             if p.is_file():
                 data = json.loads(p.read_text(encoding="utf-8"))
+                if not isinstance(data, dict):
+                    data = {}
                 existing = int(data.get("format", 0))
                 if existing > FORMAT_VERSION:
                     self.newer_format_by = str(data.get("written_by", "?"))
@@ -279,7 +284,10 @@ class NoteStore:
         if hit and hit[:2] == key:
             return hit[2]
         text, ok = self.try_load(nid)
-        title = title_of(text) if ok else _(UNREADABLE_TITLE)
+        if ok:
+            title = title_of(text)
+        else:                                    # 解不開 vs 較新版本格式：左欄跟內文的說明要一致
+            title = _(NEWER_TITLE) if text == _(NEWER_FORMAT_TEXT) else _(UNREADABLE_TITLE)
         self._title_cache[p] = (key[0], key[1], title)
         return title
 
@@ -405,7 +413,7 @@ class NoteStore:
         files = [p for p in trash.iterdir() if p.is_file() and p.suffix in (EXT_ENC, EXT_PLAIN)]
         if not files:
             return None
-        p = max(files, key=lambda q: q.stat().st_mtime)
+        p = max(files, key=lambda q: q.name.split("_", 2)[-1])   # 檔名尾巴是刪除時間戳；mtime 是原檔的，不準
         try:
             day_s, seq_s = p.name.split("_")[:2]
             day, seq = date.fromisoformat(day_s), int(seq_s)
@@ -503,7 +511,7 @@ class NoteStore:
         text = text.replace("\r\n", "\n").replace("\r", "\n")   # 記事本的 CRLF 統一成 LF（read_bytes 不會自動換）
         if text.strip() == "":
             return None
-        return self.import_text(day, text, default_title=src.stem)
+        return self.import_text(day, text, default_title=None if src.stem.isdigit() else src.stem)   # 001.md 這種是匯出的編號，不是標題
 
     def import_folder(self, src: Path, today: Optional[date] = None,
                       progress: Optional[Callable[[int, int], None]] = None) -> tuple[int, int]:

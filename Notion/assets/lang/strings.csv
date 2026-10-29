@@ -164,3 +164,7 @@ Notion.bat 裡的 NOTE_DIR 有設值，下次用 .bat 開會以它為準。\n,NO
 還原上一次刪除,Restore last deleted,还原上一次删除,最後に削除したものを復元,personalnote\ui\main_window.py:847
 開機自動啟動：把 Notion.bat 的捷徑放進 Windows 的「啟動」資料夾（右邊按鈕會開那個資料夾）。,Run at startup: put a shortcut to Notion.bat in the Windows Startup folder (the button opens that folder).,开机自动启动：把 Notion.bat 的快捷方式放进 Windows 的“启动”文件夹（右边按钮会打开那个文件夹）。,自動起動：Notion.bat のショートカットを Windows の「スタートアップ」フォルダーに入れてください（右のボタンで開きます）。,personalnote\ui\main_window.py:827
 開啟啟動資料夾,Open Startup folder,打开启动文件夹,スタートアップを開く,personalnote\ui\main_window.py:829
+這張是唯讀的（解不開或較新版本），不能插入附件。,"This note is read-only (cannot decrypt, or newer format); attachments cannot be inserted.",这张是只读的（解不开或较新版本），不能插入附件。,このノートは読み取り専用（復号不可または新しい形式）のため、添付を挿入できません。,personalnote\ui\main_window.py:450
+這張是唯讀的（解不開或較新版本），附件沒有插入；先開別張再拖。,"This note is read-only (cannot decrypt, or newer format); attachments were not inserted. Open another note and drop again.",这张是只读的（解不开或较新版本），附件没有插入；先打开别的笔记再拖。,このノートは読み取り専用のため添付は挿入されませんでした。別のノートを開いてからドロップしてください。,personalnote\ui\main_window.py:467
+（較新版本的格式）,(newer format),（较新版本的格式）,（新しい形式）,storage.NEWER_TITLE
+這張解不開或是空的，沒有東西可以複製。,This note cannot be decrypted or is empty; nothing to copy.,这张解不开或是空的，没有内容可以复制。,このノートは復号できないか空のため、コピーするものがありません。,personalnote\ui\main_window.py:341

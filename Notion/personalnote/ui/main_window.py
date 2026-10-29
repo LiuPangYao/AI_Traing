@@ -88,6 +88,9 @@ class MainWindow(ctk.CTk):
                                on_add_pick=self.new_note_pick)
         self.sidebar.grid(row=0, column=0, sticky="nsw")
         self.sidebar.set_width(self.state_.sidebar_width)
+        if self._search_kw:                      # 換語言重畫時搜尋還在：框裡的字也要還原，不然清單被濾了卻看不出為什麼
+            self.sidebar._search.insert(0, self._search_kw)
+        self.bind("<Configure>", self._fit_sidebar, add="+")   # 視窗縮小時左欄跟著讓位，不然工具列被擠出去
         # 左欄和內文之間一條可以拖的分隔線（寬度記在 state.json 的 sidebar_width）
         self._splitter = tk.Frame(self, width=6, cursor="sb_h_double_arrow", bg=self._splitter_color())
         self._splitter.grid(row=0, column=1, sticky="ns")
@@ -117,6 +120,8 @@ class MainWindow(ctk.CTk):
         self.editor.flush()
         current = self.current
         self.state_ = self.state_.with_(sidebar_width=self.sidebar._width)   # 重畫用目前的寬，不是上次存檔的
+        if getattr(self.sidebar, "_search_timer", None) is not None:
+            self.sidebar.after_cancel(self.sidebar._search_timer)             # 排程中的搜尋會掛在被砍掉的元件上
         p = getattr(self, "_settings_panel", None)
         if p is not None and p.winfo_exists():
             p.destroy()
@@ -212,8 +217,8 @@ class MainWindow(ctk.CTk):
         if self.current and self.current.day in groups and self.current.day not in shown:
             shown[self.current.day] = groups[self.current.day]          # 正在看的那天一定要在
         shown, hidden = self._cap(shown, self.SIDEBAR_MAX_NOTES)
-        self.sidebar.refresh(shown, self.current, more=max(0, len(days) - limit), on_more=self._sidebar_more,
-                             hidden=hidden)
+        more = len([d for d in days[limit:] if d not in shown])
+        self.sidebar.refresh(shown, self.current, more=more, on_more=self._sidebar_more, hidden=hidden)
 
     def _on_focus_in(self, _e=None) -> None:
         import time
@@ -261,13 +266,19 @@ class MainWindow(ctk.CTk):
         refs = self.store.list_notes(day)
         self.open_note(refs[0].id if refs else self.store.next_id(day))
 
-    def open_note(self, nid: NoteId) -> None:
+    def _flush_or_rescue(self) -> None:
+        """先存；存不進去（磁碟拔掉、加密失敗）就把手上的字寫成救援檔並提示，呼叫端接著才可以把內容換掉。"""
         self.editor.flush()
-        if self.editor.is_dirty() and self.current is not None and self.current != nid:
-            # 存不進去（磁碟拔掉、加密失敗）還要切走：先把手上的字寫成救援檔，不然 set_text 會把它蓋掉（PM 審查 P1）
+        if self.editor.is_dirty() and self.current is not None:
             rescue = self._write_rescue()
             messagebox.showwarning(APP_NAME, _("這張筆記存不進去：{0}\n").format(self.editor.last_error)
                                    + _("已另存救援檔：{0}").format(rescue), parent=self)
+
+    def open_note(self, nid: NoteId) -> None:
+        if self.current is not None and self.current != nid:
+            self._flush_or_rescue()
+        else:
+            self.editor.flush()
         self.current = nid
         text, ok = self.store.try_load(nid)
         self.editor.set_text(text, read_only=not ok)   # 解不開的只能看，不會被存檔蓋掉
@@ -297,14 +308,15 @@ class MainWindow(ctk.CTk):
     def _save_current(self, text: str) -> None:
         if self.current is None:
             return
+        is_new = not self.store.path_for(self.current).is_file()   # 第一次存：左欄還沒有它，存完要整欄重畫
         self.store.snapshot(self.current, text)      # 存之前留一份版本（內容有變才留）
         self.store.save(self.current, text)
         applog.info("存檔 %s-%03d 長度=%d", self.current.day, self.current.seq, len(text))
         # 左欄：這張已經在清單裡就只改它的字（每 1.2 秒重畫整欄太重）；是新的一張才整欄重畫。
         # 檔案到這裡已經存好了，左欄畫壞不能算存檔失敗（不然編輯器每 1.2 秒重試一次，愈試愈慢）
         try:
-            if not self.sidebar.set_title(self.current, title_of(text)):
-                self._refresh_sidebar()
+            if not self.sidebar.set_title(self.current, title_of(text)) and is_new:
+                self._refresh_sidebar()          # 不是新的卻不在左欄＝被搜尋濾掉或超過上限：不重畫（會卡 1 秒）
         except Exception:
             applog.exception("左欄更新失敗（檔案已存好）")
 
@@ -327,6 +339,7 @@ class MainWindow(ctk.CTk):
         self.editor.flush()                  # 先把手上這張存掉，next_id 才不會跟它撞號
         text, ok = self.store.try_load(nid)
         if not ok or not text.strip():
+            messagebox.showwarning(APP_NAME, _("這張解不開或是空的，沒有東西可以複製。"), parent=self)
             return
         today = date.today()
         new = self.store.next_id(today)
@@ -387,7 +400,7 @@ class MainWindow(ctk.CTk):
         if n and not messagebox.askyesno(APP_NAME, _("清掉 {0} 的 {1} 張筆記？").format(T.fmt_day(day, False), n), parent=self):
             return
         if self.current_day != day:
-            self.editor.flush()              # 清的是別天：手上這張還沒存的字先存起來
+            self._flush_or_rescue()          # 清的是別天：手上這張還沒存的字先存起來；存不進去就寫救援檔
         self.editor.set_text("")
         self.store.delete_day(day)
         self._refresh_sidebar()
@@ -435,6 +448,9 @@ class MainWindow(ctk.CTk):
 
     # ---- 附件與連結 ----
     def attach_file(self) -> None:
+        if self.editor.read_only:
+            messagebox.showwarning(APP_NAME, _("這張是唯讀的（解不開或較新版本），不能插入附件。"), parent=self)
+            return
         path = filedialog.askopenfilename(parent=self, title=_("插入檔案連結（會複製一份到 attachments）"))
         if not path:
             return
@@ -449,6 +465,9 @@ class MainWindow(ctk.CTk):
         attachments 並在游標處插一個連結，跟按 📎 一樣。讀不了的檔跳過並提示。"""
         self.editor.flush()
         last, bad = None, []
+        if self.editor.read_only and any(p.suffix.lower() not in self.TEXT_EXT for p in paths):
+            messagebox.showwarning(APP_NAME, _("這張是唯讀的（解不開或較新版本），附件沒有插入；先開別張再拖。"), parent=self)
+            paths = [p for p in paths if p.suffix.lower() in self.TEXT_EXT]
         for p in paths:
             try:
                 if p.suffix.lower() in self.TEXT_EXT:
@@ -578,9 +597,17 @@ class MainWindow(ctk.CTk):
     def _splitter_color(self) -> str:
         return T.SIDEBAR_BG[1] if ctk.get_appearance_mode() == "Dark" else T.SIDEBAR_BG[0]
 
+    def _fit_sidebar(self, e=None) -> None:
+        """左欄最寬 = 視窗寬 − 330（工具列那排至少要這麼寬）。還原上次寬度、視窗縮小都經過這裡。"""
+        if e is not None and e.widget is not self:
+            return
+        room = self.winfo_width() - 330
+        if room > T.SIDEBAR_MIN and self.sidebar._width > room:
+            self.sidebar.set_width(room)
+
     def _on_splitter_drag(self, e) -> None:
         """拖分隔線：左欄寬 = 滑鼠在視窗裡的 x（左欄從 0 開始）。範圍 theme.SIDEBAR_MIN～MAX。"""
-        w = e.x_root - self.winfo_rootx()
+        w = min(e.x_root - self.winfo_rootx(), self.winfo_width() - 330)   # 右邊至少留 330 給工具列
         self.sidebar.set_width(w)
         self.state_ = self.state_.with_(sidebar_width=self.sidebar._width)
 

@@ -18,7 +18,7 @@ class InlineTest(unittest.TestCase):
 
     def test_bold_before_italic(self):
         self.assertEqual(self.kinds("**粗體**"), [("bold", "粗體")])
-        self.assertEqual(self.kinds("***全部***"), [("bold", "*全部")])      # 不漂亮但不會壞
+        self.assertEqual(self.kinds("***全部***"), [("bold", "全部")])       # 多出來的星號當記號外的字
 
     def test_bullets_are_not_italic(self):
         self.assertEqual(self.kinds("* 項目一 * 項目二"), [])

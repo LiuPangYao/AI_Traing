@@ -41,7 +41,7 @@ def source_keys() -> dict[str, str]:
     # 用常數當 key 的（storage 的提示文字、星期）
     from personalnote import storage
     from personalnote.ui import theme
-    for name in ("EMPTY_TITLE", "UNREADABLE_TITLE", "UNREADABLE_TEXT", "NEWER_FORMAT_TEXT"):
+    for name in ("EMPTY_TITLE", "UNREADABLE_TITLE", "NEWER_TITLE", "UNREADABLE_TEXT", "NEWER_FORMAT_TEXT"):
         keys.setdefault(getattr(storage, name), f"storage.{name}")
     for w in theme.WEEKDAY_ZH:
         keys.setdefault(w, "theme.WEEKDAY_ZH")

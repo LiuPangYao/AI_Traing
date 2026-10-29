@@ -229,11 +229,15 @@ class Editor(ctk.CTkFrame):
         self.text.tag_config(LINK_TAG, underline=True)
         self._apply_tag_fonts()
         self._apply_link_color()
-        self.text.bind("<Control-b>", lambda _e: self._style_key("bold"))
-        self.text.bind("<Control-i>", lambda _e: self._style_key("italic"))
-        self.text.bind("<Control-h>", lambda _e: self._style_key("mark"))        # tk 預設 Ctrl+H 是退格，這裡擋掉
-        self.text.bind("<Control-H>", lambda _e: self._style_key("red"))         # Shift 版（大寫 keysym）
-        self.text.bind("<Control-C>", lambda _e: (self.insert_code_block(), "break")[1])
+        # Caps Lock 開著時 Windows 的 Tk 會送大寫 keysym，所以大小寫都綁，再用 event.state 的 Shift 位元分辨
+        for ks in ("b", "B"):
+            self.text.bind(f"<Control-{ks}>", lambda e: self._style_key("bold"))
+        for ks in ("i", "I"):
+            self.text.bind(f"<Control-{ks}>", lambda e: self._style_key("italic"))
+        for ks in ("h", "H"):                     # tk 預設 Ctrl+H 是退格，這裡擋掉；Shift 版是紅字
+            self.text.bind(f"<Control-{ks}>", lambda e: self._style_key("red" if e.state & 1 else "mark"))
+        for ks in ("c", "C"):                     # Ctrl+Shift+C 插指令區塊；單純 Ctrl+C 讓它照常複製
+            self.text.bind(f"<Control-{ks}>", lambda e: (self.insert_code_block(), "break")[1] if e.state & 1 else None)
         self.text.bind("<<Modified>>", self._on_modified)
         self.text.bind("<Control-MouseWheel>", self._on_ctrl_wheel)
         self.text.bind("<Control-Button-1>", self._on_ctrl_click)
@@ -493,6 +497,7 @@ class Editor(ctk.CTkFrame):
         tk_text = self.text._textbox
         was_loading = self._loading
         self._loading = True                    # 下面插「…」小標籤會觸發 <<Modified>>
+        tk_text.configure(undo=False)           # 重畫的 delete／insert 不能進復原堆疊（Ctrl+Z 會把筆記弄壞）
         try:
             # 先把上一次的「…」和「複製」拿掉（它們佔一個索引位置，要先清才能用字元位置算）
             for tag in (ELL_TAG, COPY_TAG):
@@ -538,6 +543,7 @@ class Editor(ctk.CTkFrame):
                 self._insert_copy_button(f"{a + 1}.end", markup.block_text(lines, a, b))
             tk_text.edit_modified(False)
         finally:
+            tk_text.configure(undo=True)
             self._loading = was_loading
         self._refresh_images()
         self._update_counter()
@@ -575,8 +581,17 @@ class Editor(ctk.CTkFrame):
                        bg=self._code_bg(), bd=0, padx=4, cursor="hand2")
 
         def copy(_e=None, w=lbl):
+            text = payload
+            try:                                 # 按的時候重算：上色前 300 ms 內改過的內容才不會是舊的
+                line = int(tk_text.index(w).split(".")[0]) - 1
+                lines = tk_text.get("1.0", "end-1c").split("\n")
+                for a, b in markup.code_blocks(lines):
+                    if a == line:
+                        text = markup.block_text(lines, a, b)
+            except Exception:
+                pass
             self.clipboard_clear()
-            self.clipboard_append(payload)
+            self.clipboard_append(text)
             w.configure(text=_(" 已複製 "))
             w.after(1200, lambda: w.winfo_exists() and w.configure(text=_(" 複製 ")))
         lbl.bind("<Button-1>", copy)
@@ -661,6 +676,7 @@ class Editor(ctk.CTkFrame):
         self._hide_handle()
         tk_text = self.text._textbox
         was_loading = self._loading
+        self.text._textbox.configure(undo=False)   # 畫圖的 delete／image_create 不進復原堆疊
         self._loading = True                    # 畫圖會觸發 <<Modified>>，不能算成使用者改了內容
         try:
             ranges = tk_text.tag_ranges(IMG_TAG)
@@ -681,6 +697,7 @@ class Editor(ctk.CTkFrame):
         except Exception:
             applog.exception("畫圖失敗")
         finally:
+            self.text._textbox.configure(undo=True)
             self._loading = was_loading
 
     # ---- 圖片縮放：點圖 → 右下角出現把手，拖動等比例縮放，寬度寫進那行的 {w=…} ----
@@ -749,8 +766,12 @@ class Editor(ctk.CTkFrame):
         # 只換文字部分：刪到「圖那個字元」之前（中間若有「…」標籤也一起清掉），再重畫
         img_range = tk_text.tag_nextrange(IMG_TAG, f"{line}.0", f"{line}.end")
         end_text = img_range[0] if img_range else f"{line}.end"
-        tk_text.delete(f"{line}.0", end_text)
-        tk_text.insert(f"{line}.0", new_text)
+        tk_text.configure(undo=False)           # 拉大小不進復原堆疊：這段 delete 跨過「…」標籤，undo 會把連結行弄壞
+        try:
+            tk_text.delete(f"{line}.0", end_text)
+            tk_text.insert(f"{line}.0", new_text)
+        finally:
+            tk_text.configure(undo=True)
         self._hide_handle()
         self._highlight_links()                 # 會把 modified 旗標清掉，所以下面要自己標 dirty
         self._mark_dirty()

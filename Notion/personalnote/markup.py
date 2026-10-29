@@ -18,12 +18,16 @@ from dataclasses import dataclass
 
 MARKERS = {"mark": "==", "red": "!!", "bold": "**", "italic": "*"}
 KINDS = ("mark", "red", "bold", "italic")                       # 跟 INLINE_RE 的分支順序一致
-_INNER = r"(\S(?:.*?\S)?)"                                       # 至少一個字、頭尾不是空白
+def _inner(ch: str) -> str:
+    """記號裡面的字：至少一個字、頭尾不是空白、不含記號字元本身（不然「==a== x ==b==」會黏成一段）。"""
+    return r"([^%s\s](?:[^%s]*?[^%s\s])?)" % (ch, ch, ch)
+
+
 INLINE_RE = re.compile(
-    r"(==)" + _INNER + r"=="
-    r"|(!!)" + _INNER + r"!!"
-    r"|(\*\*)" + _INNER + r"\*\*"
-    r"|(\*)([^*\s](?:[^*]*?[^*\s])?)\*"                          # 單星：裡面不能再有星號
+    r"(==)" + _inner("=") + r"=="
+    r"|(!!)" + _inner("!") + r"!!"
+    r"|(\*\*)" + _inner("*") + r"\*\*"
+    r"|(\*)" + _inner("*") + r"\*"
 )
 FENCE = "```"
 
