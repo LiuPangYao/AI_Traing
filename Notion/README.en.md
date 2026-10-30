@@ -1,4 +1,4 @@
-<!-- version: 1.0.6 -->
+<!-- version: 1.0.7 -->
 [繁體中文](README.md) | **English** | [日本語](README.ja.md) | [ไทย](README.th.md) | [हिन्दी](README.hi.md)
 
 # Notion
@@ -42,8 +42,9 @@ The side panel lists notes by day; the ☆ before a title marks a favorite. The 
 | Share | Right-click a note → Share: send by email (opens your mail app, subject = title, body = plain text) or copy to the Google Drive desktop sync folder (you pick a folder if it is not found) |
 | Languages | English (default), Traditional Chinese, Simplified Chinese, Japanese; switch under Settings → Appearance without restarting; the translation table is one csv, add a column to add a language |
 | Updates | A few seconds after start, the app checks GitHub Releases for a newer version (reads the version number only). If there is one it reminds you: download the zip, skip this version, or turn reminders off (Settings → Update). Updating = close the app and replace `Notion.exe`; notes and settings are untouched |
-| Calendar and usage time | Toolbar “Calendar” or Ctrl+M: which days this month have notes and how long you used the app each day (heat map); click a day to jump there; time counts only while the window is focused and active, stored in `.app/usage.json`; Settings → Update → Version history lists what changed in every version |
-| Quick tour | A five-page tour on first launch, shown once; Settings → Update shows it again |
+| Calendar and usage time | Toolbar “Calendar” or Ctrl+M: which days this month have notes and how long you used the app each day (heat map); click a day to jump there; time counts only while the window is focused and active, stored in `.app/usage.json`; Settings → Help → Version history lists what changed in every version |
+| Note links and templates | Type `[[title]]` (or right-click a note → “Copy note link”) and Ctrl+click to jump; “Back” (Alt+Left) returns; “New note ▾” starts from a template (add your own in .app/templates); toolbar “Open items” (Ctrl+L) lists every unticked box, copyable as text; Settings → Files exports a date range; Tab indents list lines; recent #tags under the search box |
+| Quick tour | A five-page tour on first launch, shown once; Settings → Help shows it again |
 | Appearance | Light / system / dark; Ctrl+wheel zoom; side panel on the left, right or bottom, width draggable; collapsible format bar; empty-note hint; "Saved" fades out; dialogs open centred on the main window |
 | Other | Single instance; splash screen; progress for long actions; line and character counts; the "today" marker moves on its own after midnight |
 
@@ -74,7 +75,7 @@ Notion/                       ← notes folder (back up the whole thing)
   attachments/                ← pasted images and attachments (not encrypted)
   .app/settings.json          ← in-app settings (incl. shortcuts, update reminders); state.json window state and panel position;
                                  order.json manual ordering; favorites.json; history/ snapshots; trash/; error.log
-%APPDATA%\PersonalNote\logs   ← personalnote.log, crash.log (hang stacks); rescue/ rescue files
+%LOCALAPPDATA%\PersonalNote\logs   ← personalnote.log, crash.log (hang stacks); rescue/ rescue files
 ```
 
 What encryption covers: note text and snapshots. Attachments, exported .md files and file names in the trash are not encrypted. Encryption is bound to the Windows account: a new PC, a reinstall or a deleted account cannot open the notes, so export everything first.

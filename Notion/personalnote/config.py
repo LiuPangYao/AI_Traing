@@ -84,7 +84,8 @@ class Settings:
         """使用者在設定面板選了新位置：記到 APPDATA（load 時給的那個，測試才不會寫到真的），下次啟動照這個。"""
         p = _note_dir_pointer(appdata or self.appdata)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(str(self.note_dir), encoding="utf-8")
+        from .fileio import atomic_write_text
+        atomic_write_text(p, str(self.note_dir))
 
     def _apply(self, values: dict[str, Any]) -> "Settings":
         clean = {k: _coerce(k, v) for k, v in values.items() if v is not None and k in _FIELD_TYPES}
@@ -95,7 +96,8 @@ class Settings:
         path = self.settings_path
         path.parent.mkdir(parents=True, exist_ok=True)
         data = {k: getattr(self, k) for k in self.PERSISTED}
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        from .fileio import atomic_write_text
+        atomic_write_text(path, json.dumps(data, ensure_ascii=False, indent=2))
 
     @property
     def settings_path(self) -> Path:

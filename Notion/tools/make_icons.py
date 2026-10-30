@@ -22,7 +22,7 @@ def canvas():
 
 def save(img, name, variant):
     OUT.mkdir(parents=True, exist_ok=True)
-    img.resize((64, 64), Image.LANCZOS).save(OUT / f"{name}_{variant}.png")
+    img.resize((128, 128), Image.LANCZOS).save(OUT / f"{name}_{variant}.png")   # 128 px：theme.icon 再 LANCZOS 縮到實際像素
 
 
 def line(d, pts, c, w=W):

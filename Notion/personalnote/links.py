@@ -25,6 +25,7 @@ WINPATH_RE = re.compile(
     _START + _SEG + '(?: ' + _SEG + ')*?' + r'\.[A-Za-z0-9]{1,6}(?=$|[\s,;:!?)\]。，、])'   # 有副檔名：可含單一空格
     + '|' + _START + _SEG)                                                                 # 沒副檔名：空格就停
 ATTACH_RE = re.compile(r"\[[^\]]*\]\(([^()]+)\)(?:\{w=\d+\})?")   # 後面可接 {w=400}：圖片顯示寬度
+NOTE_RE = re.compile(r"\[\[([^\[\]\n]{1,80})\]\]")      # [[標題]] 或 [[2026-10-29/003]]：連到另一張筆記（目標寫成 note:…）
 _TRAIL = ".,;:!?"
 
 
@@ -40,7 +41,13 @@ def find_links(line: str) -> list[Link]:
     out: list[Link] = []
     taken: list[tuple[int, int]] = []
 
+    for m in NOTE_RE.finditer(line):
+        out.append(Link(m.start(), m.end(), "note:" + m.group(1).strip()))
+        taken.append((m.start(), m.end()))
+
     for m in ATTACH_RE.finditer(line):
+        if any(a <= m.start() < b for a, b in taken):
+            continue
         out.append(Link(m.start(), m.end(), m.group(1).strip()))
         taken.append((m.start(), m.end()))
 

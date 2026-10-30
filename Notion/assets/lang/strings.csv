@@ -322,3 +322,34 @@ Ctrl+F 搜尋日期或內容,Ctrl+F searches dates and text,Ctrl+F 搜索日期�
 每一版改了什麼（1.0.0 → {0}）,What changed in each version (1.0.0 → {0}),每一版改了什么（1.0.0 → {0}）,各バージョンの変更点（1.0.0 → {0}）,personalnote\ui\main_window.py:1406
 還沒查（啟動時關掉了，或還沒到時間）；按「重新檢查」才會連網,"Not checked yet (turned off at startup, or not yet due); “Check again” is the only thing that connects",还没查（启动时关掉了，或还没到时间）；按“重新检查”才会联网,まだ確認していません（起動時の確認がオフか、まだ時間前）。「再確認」を押したときだけ接続します,personalnote\ui\main_window.py:1467
 月曆（哪幾天有筆記、每天用多久）,"Calendar (which days have notes, daily usage time)",月历（哪几天有笔记、每天用多久）,カレンダー（メモのある日、毎日の使用時間）,keys.ACTIONS
+返回,Back,返回,戻る,personalnote\ui\main_window.py:182
+回上一張筆記,Back to the previous note,回上一张笔记,前のノートに戻る,personalnote\ui\main_window.py:183
+用範本開一張新筆記,New note from a template,用模板开一张新笔记,テンプレートから新しいノート,personalnote\ui\main_window.py:199
+未完成,Open items,未完成,未完了,personalnote\ui\main_window.py:200
+未完成清單：所有筆記裡還沒打勾的,Open items: every unticked box in all notes,未完成清单：所有笔记里还没打勾的,未完了リスト：全ノートの未チェック項目,personalnote\ui\main_window.py:201
+複製筆記連結 [[標題]],Copy note link [[title]],复制笔记链接 [[标题]],ノートリンク [[タイトル]] をコピー,personalnote\ui\main_window.py:415
+找不到筆記「{0}」,Note “{0}” not found,找不到笔记“{0}”,ノート「{0}」が見つかりません,personalnote\ui\main_window.py:939
+沒有上一張了,No previous note,没有上一张了,前のノートはありません,personalnote\ui\main_window.py:955
+已複製 {0}，貼到別張筆記裡，Ctrl+點就會跳過來,Copied {0}; paste it into another note and Ctrl+click to jump here,已复制 {0}，贴到别张笔记里，Ctrl+点就会跳过来,{0} をコピーしました。別のノートに貼り付けて Ctrl+クリックで戻れます,personalnote\ui\main_window.py:962
+開啟範本資料夾（可自己加 .md）,Open the templates folder (add your own .md),打开模板文件夹（可自己加 .md）,テンプレートフォルダーを開く（.md を追加できます）,personalnote\ui\main_window.py:972
+匯出日期區間,Export a date range,导出日期区间,期間をエクスポート,personalnote\ui\main_window.py:1009
+已匯出 {0} 張到 {1},Exported {0} notes to {1},已导出 {0} 张到 {1},{0} 枚を {1} にエクスポートしました,personalnote\ui\main_window.py:1015
+範本資料夾（新筆記 ▾ 用的 .md）,Templates folder (.md files used by New note ▾),模板文件夹（新笔记 ▾ 用的 .md）,テンプレートフォルダー（新しいノート ▾ で使う .md）,personalnote\ui\main_window.py:1462
+匯出日期區間…（合成一個 .md，週報用）,"Export a date range… (one .md, for weekly reports)",导出日期区间…（合成一个 .md，周报用）,期間をエクスポート…（1 つの .md、週報用）,personalnote\ui\main_window.py:1473
+＋ 額外新增（補以前的日期）,+ Add elsewhere (an earlier date),＋ 额外新增（补以前的日期）,＋ 別の日に追加（過去の日付）,personalnote\ui\sidebar.py:90
+未完成清單,Open items,未完成清单,未完了リスト,personalnote\ui\todo_view.py:57
+未完成清單（最近 {0} 天，{1} 項）,"Open items (last {0} days, {1} items)",未完成清单（最近 {0} 天，{1} 项）,未完了リスト（最近 {0} 日、{1} 件）,personalnote\ui\todo_view.py:67
+已複製到剪貼簿,Copied to the clipboard,已复制到剪贴板,クリップボードにコピーしました,personalnote\ui\todo_view.py:72
+複製成文字,Copy as text,复制成文字,テキストとしてコピー,personalnote\ui\todo_view.py:73
+沒有未完成的項目。行首打「- [ ] 」就會出現在這裡。,No open items. Start a line with “- [ ] ” and it shows up here.,没有未完成的项目。行首打“- [ ] ”就会出现在这里。,未完了の項目はありません。行頭に「- [ ] 」と打つとここに表示されます。,personalnote\ui\todo_view.py:80
+點項目會開那張筆記；打勾要在筆記裡打。,Click an item to open its note; tick it inside the note.,点项目会打开那张笔记；打勾要在笔记里打。,項目をクリックするとそのノートが開きます。チェックはノート内で付けてください。,personalnote\ui\todo_view.py:94
+換電腦前先 設定 → 存檔 → 匯出全部（筆記綁這台的 Windows 帳號）,Before changing PCs: Settings → Files → Export all (notes are tied to this Windows account),换电脑前先 设置 → 存档 → 导出全部（笔记绑这台的 Windows 账号）,PC を替える前に 設定 → 保存 → すべてエクスポート（ノートはこの Windows アカウントに結び付いています）,TourDialog.PAGES
+這個教學在 設定 → 說明 可以再看一次,You can see this tour again under Settings → Help,这个教程在 设置 → 说明 可以再看一次,このガイドは 設定 → ヘルプ からもう一度見られます,TourDialog.PAGES
+未完成清單（所有筆記裡還沒打勾的）,Open items (every unticked box in all notes),未完成清单（所有笔记里还没打勾的）,未完了リスト（全ノートの未チェック項目）,keys.ACTIONS
+回上一張筆記（連結跳過去後返回）,Back to the previous note (after following a link),回上一张笔记（链接跳过去后返回）,前のノートに戻る（リンクで移動したあと）,keys.ACTIONS
+[[標題]],[[title]],[[标题]],[[タイトル]],keys.GESTURES
+連到另一張筆記：Ctrl+點跳過去，「返回」回來；右鍵筆記列「複製筆記連結」,"Link to another note: Ctrl+click to jump, “Back” to return; right-click a note → “Copy note link”",链接到另一张笔记：Ctrl+点跳过去，“返回”回来；右键笔记列“复制笔记链接”,別のノートへのリンク：Ctrl+クリックで移動、「戻る」で戻る。ノートを右クリック →「ノートリンクをコピー」,keys.GESTURES
+清單行按 Tab／Shift+Tab,Tab / Shift+Tab on a list line,清单行按 Tab／Shift+Tab,リスト行で Tab／Shift+Tab,keys.GESTURES
+縮排／取消縮排子項,Indent / outdent a sub-item,缩进／取消缩进子项,子項目のインデント／解除,keys.GESTURES
+新筆記旁的 ▾,▾ next to New note,新笔记旁的 ▾,新しいノートの横の ▾,keys.GESTURES
+用範本開一張（會議紀錄、週報…；範本在 .app/templates，可自己加）,"New note from a template (meeting notes, weekly report…; templates live in .app/templates, add your own)",用模板开一张（会议纪要、周报…；模板在 .app/templates，可自己加）,テンプレートから新しいノート（会議メモ、週報…。テンプレートは .app/templates にあり追加可）,keys.GESTURES

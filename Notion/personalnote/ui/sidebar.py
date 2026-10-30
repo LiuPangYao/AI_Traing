@@ -40,7 +40,8 @@ class Sidebar(ctk.CTkFrame):
                  on_add_pick: Optional[Callable[[], None]] = None,
                  on_reorder: Optional[Callable[[date, list[int]], None]] = None,
                  on_day_menu: Optional[Callable[[date, int, int], None]] = None,
-                 is_fav: Optional[Callable[[NoteId], bool]] = None, on_star: Optional[Callable[[NoteId], None]] = None):
+                 is_fav: Optional[Callable[[NoteId], bool]] = None, on_star: Optional[Callable[[NoteId], None]] = None,
+                 on_tag: Optional[Callable[[str], None]] = None):
         """on_add_pick：左下「額外新增」按鈕（主視窗跳月曆選日期再開新筆記）。
         on_day_menu(day, x, y)：日期列按右鍵（主視窗出選單：匯出整天、清整天）。"""
         super().__init__(master, width=T.SIDEBAR_WIDTH, corner_radius=0, fg_color=T.SIDEBAR_BG)
@@ -52,7 +53,7 @@ class Sidebar(ctk.CTkFrame):
         self._titles: dict[NoteId, str] = {}             # 每列的完整標題（寬度改了要重算「…」）
         self._header_titles: dict[date, str] = {}        # 每天標題列的完整字（英文 2026/10/29 (Thu) Today 較長，窄的時候要「…」）
         self.grid_propagate(False)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
         self.grid_columnconfigure(0, weight=1)
         self._on_select = on_select
         self._on_add = on_add
@@ -62,6 +63,7 @@ class Sidebar(ctk.CTkFrame):
         self._on_day_menu = on_day_menu
         self._is_fav = is_fav or (lambda _n: False)   # 這張有沒有星號（主視窗給，查的是它的快取）
         self._on_star = on_star                      # 點星號：加入／取消我的最愛
+        self._on_tag = on_tag                        # 點搜尋框下面的 #標籤
         self._star_fg = "#e5a50a"                    # 星號的顏色（亮暗主題都一樣）
         self._stars: dict[NoteId, tk.Label] = {}     # 每列的星號（在自己那天的列）
         self._fav_rows: dict[NoteId, tk.Label] = {}  # 「★ 我的最愛」那組裡的副本列（不登記到 _rows：選中、拖拉都只認本尊）
@@ -81,14 +83,16 @@ class Sidebar(ctk.CTkFrame):
         self._search.bind("<KeyRelease>", self._search_debounced)   # 停 250 ms 才搜，打字不卡
         self._search.bind("<Escape>", lambda _e: self.clear_search())
         imefix.bind(self._search._entry)
+        self._tags = ctk.CTkFrame(self, fg_color="transparent")    # 搜尋框下面：最近常用的 #標籤（set_tags）
+        self._tags.grid(row=1, column=0, sticky="ew", padx=10)
 
         if on_add_pick is not None:              # 左下角：先選日期再新增（例如回頭補五月的紀錄）
-            ctk.CTkButton(self, text=_("＋ 額外新增"), font=T.ui_font(12), height=30, corner_radius=6, anchor="w",
-                          fg_color="transparent", border_width=0, text_color=T.TEXT_MUTED, hover_color=T.ROW_HOVER,
-                          command=on_add_pick).grid(row=2, column=0, sticky="ew", padx=12, pady=(4, 8))   # 平的，不加框（Peter：有框很奇怪）
+            ctk.CTkButton(self, text=_("＋ 額外新增（補以前的日期）"), font=T.ui_font(12), height=30, corner_radius=T.RADIUS,
+                          fg_color=T.BTN_SOFT_BG, border_width=0, text_color=T.BTN_SOFT_FG, hover_color=T.BTN_SOFT_HOVER,
+                          command=on_add_pick).grid(row=3, column=0, sticky="ew", padx=12, pady=(4, 8))   # 平的，不加框（Peter：有框很奇怪）
 
         self._list = ctk.CTkScrollableFrame(self, fg_color="transparent", corner_radius=0)
-        self._list.grid(row=1, column=0, sticky="nsew", padx=(2, 0))
+        self._list.grid(row=2, column=0, sticky="nsew", padx=(2, 0))
         self._list.grid_columnconfigure(0, weight=1)
         self._empty = ctk.CTkLabel(self._list, text=_("還沒有筆記\n按右邊的 ＋ 開第一張"), font=T.ui_font(12),
                                    text_color=T.TEXT_MUTED, justify="center")
@@ -247,6 +251,21 @@ class Sidebar(ctk.CTkFrame):
             self._collapsed.add(day)
         if day in self._groups:
             self._apply_collapse(day)
+
+    def set_tags(self, tags: list[str]) -> None:
+        """搜尋框下面那排 #標籤：點一下＝搜尋那個標籤。沒有就整排收起。"""
+        for w in self._tags.winfo_children():
+            w.destroy()
+        if not tags:
+            self._tags.grid_remove()
+            return
+        self._tags.grid()
+        for t in tags:
+            lbl = tk.Label(self._tags, text=t, bg=_c(T.SIDEBAR_BG), fg=_c(T.ACCENT), font=(T.UI_FONT_FAMILY, 10),
+                           cursor="hand2", padx=3, pady=1)
+            lbl.pack(side="left", padx=(0, 2), pady=(0, 4))
+            if self._on_tag is not None:
+                lbl.bind("<Button-1>", lambda _e, tt=t: self._on_tag(tt))
 
     def has(self, nid: NoteId) -> bool:
         return nid in self._rows

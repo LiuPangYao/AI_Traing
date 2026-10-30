@@ -4,6 +4,17 @@
 from __future__ import annotations
 
 ENTRIES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("1.0.7",
+     ("筆記連結：[[標題]] Ctrl+點跳到另一張，「返回」（Alt+Left）回來；右鍵「複製筆記連結」",
+      "範本：新筆記旁的 ▾（會議紀錄、週報…，.app/templates 可自己加）；未完成清單（Ctrl+L）；匯出日期區間；清單行 Tab 縮排；搜尋框下列最近標籤",
+      "設定多一頁「說明」（教學、關於、版本紀錄）；「額外新增」改成看得出可以按；標題、格式列、內文間距拉開",
+      "輸入法選字的字跟內文一樣大；工具列圖示與啟動畫面重畫（不再鋸齒）",
+      "設定／狀態檔原子寫入；圖片快取總量上限；垃圾桶 30 天自動清、刪筆記連舊版本一起；可執行檔清單補齊；log 與救援檔改放 %LOCALAPPDATA%"),
+     ("Note links: [[title]] with Ctrl+click jumps to another note, “Back” (Alt+Left) returns; right-click “Copy note link”",
+      "Templates: ▾ next to New note (meeting notes, weekly report…; add your own in .app/templates); Open items list (Ctrl+L); export a date range; Tab indents list lines; recent tags under the search box",
+      "Settings gets a “Help” page (tour, about, version history); “Add elsewhere” now looks clickable; more space between title, format bar and text",
+      "IME composition text matches the note font size; toolbar icons and splash redrawn (no more jagged edges)",
+      "Settings/state files written atomically; image cache byte limit; trash auto-cleaned after 30 days and snapshots removed with the note; executable list extended; logs and rescue files moved to %LOCALAPPDATA%")),
     ("1.0.6",
      ("月曆：哪幾天有筆記、每天用多久（熱度圖），點日期就跳過去；工具列「月曆」或 Ctrl+M",
       "每天使用時間統計（視窗有焦點且有在動才算），存在 .app/usage.json",

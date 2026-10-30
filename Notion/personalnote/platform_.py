@@ -20,6 +20,51 @@ APP_DIR_NAME = "PersonalNote"      # 設定、log 放的資料夾名（沿用舊
 
 
 # ---- 路徑 ----
+def set_ime_font(widget, family: str, size_pt: float) -> bool:
+    """Windows 輸入法（注音選字）的組字視窗用 Tk 的字型大小：ImmSetCompositionFont（Peter：選字時字明顯比較小）。
+    非 Windows 或沒有輸入法上下文就什麼都不做。"""
+    if not IS_WIN:
+        return False
+    import ctypes
+    from ctypes import wintypes
+    try:
+        hwnd = widget.winfo_id()
+        imm = ctypes.windll.imm32
+        imm.ImmGetContext.restype = ctypes.c_void_p
+        imm.ImmGetContext.argtypes = [wintypes.HWND]
+        imm.ImmReleaseContext.argtypes = [wintypes.HWND, ctypes.c_void_p]
+        himc = imm.ImmGetContext(hwnd)
+        if not himc:
+            return False
+
+        class LOGFONTW(ctypes.Structure):
+            _fields_ = [("lfHeight", ctypes.c_long), ("lfWidth", ctypes.c_long), ("lfEscapement", ctypes.c_long),
+                        ("lfOrientation", ctypes.c_long), ("lfWeight", ctypes.c_long), ("lfItalic", ctypes.c_byte),
+                        ("lfUnderline", ctypes.c_byte), ("lfStrikeOut", ctypes.c_byte), ("lfCharSet", ctypes.c_byte),
+                        ("lfOutPrecision", ctypes.c_byte), ("lfClipPrecision", ctypes.c_byte), ("lfQuality", ctypes.c_byte),
+                        ("lfPitchAndFamily", ctypes.c_byte), ("lfFaceName", ctypes.c_wchar * 32)]
+        lf = LOGFONTW()
+        dpi = float(widget.winfo_fpixels("1i"))
+        lf.lfHeight = -int(round(float(size_pt) * dpi / 72.0))
+        lf.lfWeight = 400
+        lf.lfCharSet = 1                      # DEFAULT_CHARSET
+        lf.lfQuality = 5                      # CLEARTYPE_QUALITY
+        lf.lfFaceName = str(family)[:31]
+        imm.ImmSetCompositionFontW.argtypes = [ctypes.c_void_p, ctypes.POINTER(LOGFONTW)]
+        ok = bool(imm.ImmSetCompositionFontW(himc, ctypes.byref(lf)))
+        imm.ImmReleaseContext(hwnd, himc)
+        return ok
+    except Exception:
+        return False
+
+
+def data_dir() -> Path:
+    """log 與救援檔的根：Windows %LOCALAPPDATA%\\PersonalNote（不漫遊，不會被網域同步到伺服器）；Linux ~/.local/state/PersonalNote。"""
+    if IS_WIN:
+        return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / APP_DIR_NAME
+    return Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / APP_DIR_NAME
+
+
 def config_dir(base: Optional[Path] = None) -> Path:
     """設定（note_dir.txt）、log、救援檔的根：Windows %APPDATA%\\PersonalNote；Linux ~/.config/PersonalNote。
     base 給測試用（假的 APPDATA）。"""

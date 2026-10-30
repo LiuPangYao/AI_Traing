@@ -51,10 +51,11 @@ def clear_icon_cache() -> None:
     _ICON_CACHE.clear()
 
 
-def icon(name: str, size: int = 18):
-    """工具列圖示：assets/icons/<name>_light.png 與 _dark.png（tools/make_icons.py 畫的）。
+def icon(name: str, size: int = 18, scaling: float = 1.0):
+    """工具列圖示：assets/icons/<name>_light.png 與 _dark.png（tools/make_icons.py 畫的 128 px）。
+    先用 LANCZOS 縮到實際像素（size × 螢幕縮放），再交給 CTkImage——讓它自己縮會有鋸齒（Peter 2026-10-30）。
     找不到檔就回 None，按鈕退回顯示文字。打包後圖示在 sys._MEIPASS/assets。"""
-    key = (name, size)
+    key = (name, size, round(float(scaling), 2))
     if key in _ICON_CACHE:
         return _ICON_CACHE[key]
     import sys
@@ -62,8 +63,10 @@ def icon(name: str, size: int = 18):
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent)) / "assets" / "icons"
     try:
         from PIL import Image
-        img = ctk.CTkImage(light_image=Image.open(base / f"{name}_light.png"),
-                           dark_image=Image.open(base / f"{name}_dark.png"), size=(size, size))
+        px = max(1, int(round(size * float(scaling))))
+        light = Image.open(base / f"{name}_light.png").convert("RGBA").resize((px, px), Image.LANCZOS)
+        dark = Image.open(base / f"{name}_dark.png").convert("RGBA").resize((px, px), Image.LANCZOS)
+        img = ctk.CTkImage(light_image=light, dark_image=dark, size=(size, size))
     except Exception:
         img = None
     _ICON_CACHE[key] = img

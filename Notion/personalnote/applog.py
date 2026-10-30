@@ -1,7 +1,7 @@
 # [AI協助 Claude] 由 Peter Liu 於 2026-10-28 審閱修改
 """程式 log：出錯、當掉、卡死時留下可以分析的紀錄。
 
-放哪裡：%APPDATA%\\PersonalNote\\logs\\personalnote.log（最多 1 MB × 3 份輪替）。
+放哪裡：%LOCALAPPDATA%\\PersonalNote\\logs\\personalnote.log（最多 1 MB × 3 份輪替）。
         故意不放筆記資料夾：筆記資料夾在拔掉的隨身碟上時，log 還是寫得出來。
 記什麼：啟動（版本、Python、參數、設定）、開哪張、存檔、匯入匯出、設定變更、關閉；
         所有沒接到的例外（含堆疊）；Python 層硬當（faulthandler）；主迴圈卡住（看門狗倒堆疊）。
@@ -25,8 +25,8 @@ _fault_file = None
 
 
 def log_dir() -> Path:
-    from . import platform_                 # Windows %APPDATA%\PersonalNote\logs；Linux ~/.config/PersonalNote/logs
-    return platform_.config_dir() / "logs"
+    from . import platform_                 # Windows %LOCALAPPDATA%\PersonalNote\logs（1.0.7 起；之前在 %APPDATA%）；Linux ~/.local/state/PersonalNote/logs
+    return platform_.data_dir() / "logs"
 
 
 def setup() -> Path:

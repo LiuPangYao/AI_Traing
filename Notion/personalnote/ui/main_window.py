@@ -18,7 +18,7 @@ import subprocess
 import threading
 import time
 import tkinter as tk
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Optional
@@ -28,6 +28,7 @@ import customtkinter as ctk
 from ..i18n import _
 from .. import APP_NAME, AUTHOR, __version__, applog, dropfiles, keys, platform_, startup, update
 from .. import usage as usagelog
+from .. import templates
 from ..config import Settings
 from ..state import AppState
 from ..storage import FAV_DAY, IMPORT_MAX_BYTES, TODO_DAY, TODO_ID, NoteId, NoteRef, NoteStore, title_of, tomorrow, yesterday
@@ -63,6 +64,7 @@ class MainWindow(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.keymap = keys.KeyMap.load(settings.keys)   # 快捷鍵表：預設疊上設定裡改過的（設定面板可改）
         self._fav_cache: set = set()                    # 有星號的筆記（_refresh_sidebar 每次重算）
+        self._back: list = []                           # 「返回」用：之前看過的筆記（最多 50）
         self._build_ui()
         self.bind("<Configure>", self._fit_sidebar, add="+")   # 視窗縮小時左欄跟著讓位（只綁這一次；rebuild_ui 不再綁）
         self._bind_keys()
@@ -99,7 +101,7 @@ class MainWindow(ctk.CTk):
                                on_search=self._on_search, on_note_menu=self.note_menu,
                                on_add_pick=self.new_note_pick, on_reorder=self.reorder_day,
                                on_day_menu=self.day_menu,
-                               is_fav=lambda n: n in self._fav_cache, on_star=self.toggle_favorite)
+                               is_fav=lambda n: n in self._fav_cache, on_star=self.toggle_favorite, on_tag=self.search_tag)
         self.sidebar.grid(**sb_pos)
         if side == "bottom":
             self.sidebar.set_height(self.state_.sidebar_height)
@@ -160,7 +162,7 @@ class MainWindow(ctk.CTk):
             """圖示按鈕：圖示由 tools/make_icons.py 畫（assets/icons），找不到圖就顯示 text 的備用字。"""
             style = dict(fg_color="transparent", hover_color=T.ROW_HOVER, text_color=T.TEXT) if plain else {}
             style.update(kw)
-            img = T.icon(icon_name) if icon_name else None
+            img = T.icon(icon_name, scaling=self._icon_scaling()) if icon_name else None
             btn = ctk.CTkButton(bar, text=text if (img is None or text) else "", image=img, width=width, height=32,
                                 corner_radius=8, font=T.ui_font(13), command=cmd, compound="left", **style)
             if tip:
@@ -177,6 +179,8 @@ class MainWindow(ctk.CTk):
         self.day_label.grid(row=0, column=1, sticky="ew")
         self._nav_next = mk(nav, "next", lambda: self.go_day(tomorrow(self.current_day)), tip=lambda: _("後一天") + f"（{self.keymap.key_of('next_day')}）")
         self._nav_next.grid(row=0, column=2)
+        mk(nav, "back", self.go_back, text=_("返回"), width=60,
+           tip=lambda: _("回上一張筆記") + f"（{self.keymap.key_of('back')}）").grid(row=0, column=3, padx=(8, 0))
         # 語言切換在 ⚙ 設定裡（工具列不放下拉，省位置）
         self._nav = nav
         nav.bind("<Configure>", lambda _e: self._refresh_day_label())   # 視窗變窄就換短一點的寫法
@@ -184,17 +188,21 @@ class MainWindow(ctk.CTk):
         # 第二排：動作
         act = ctk.CTkFrame(parent, fg_color="transparent")
         act.grid(row=1, column=0, sticky="ew", pady=(2, 6))
-        act.grid_columnconfigure(4, weight=1)
+        act.grid_columnconfigure(6, weight=1)
         mk(act, "menu", self.toggle_sidebar, tip=lambda: _("收起／展開左欄") + f"（{self.keymap.key_of('sidebar')}）").grid(row=0, column=0, padx=(0, 2))
         mk(act, "today", lambda: self.go_day(date.today()), text=_("今天"), width=64, tip=_("回到今天")).grid(row=0, column=1, padx=2)
         mk(act, "cal", self.show_calendar, text=_("月曆"), width=64,
            tip=lambda: _("月曆：哪幾天有筆記、每天用多久") + f"（{self.keymap.key_of('calendar')}）").grid(row=0, column=2, padx=2)
         mk(act, "plus", lambda: self.new_note(date.today()), text=_("新筆記"), width=92, plain=False,
-           fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER, tip=lambda: _("今天加一張") + f"（{self.keymap.key_of('new_note')}）").grid(row=0, column=3, padx=2)
+           fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER, tip=lambda: _("今天加一張") + f"（{self.keymap.key_of('new_note')}）").grid(row=0, column=3, padx=(2, 0))
+        mk(act, "tmpl", self.template_menu, text="▾", width=26, plain=False, fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
+           tip=_("用範本開一張新筆記")).grid(row=0, column=4, padx=(0, 2))
+        mk(act, "todo", self.show_todo_list, text=_("未完成"), width=64,
+           tip=lambda: _("未完成清單：所有筆記裡還沒打勾的") + f"（{self.keymap.key_of('todo_list')}）").grid(row=0, column=5, padx=2)
         # 復原／重做搬到內文上方的格式列（文字按鈕，箭頭圖示 Peter 說看不懂），這一排才放得下 640 寬
-        mk(act, "attach", self.attach_file, tip=_("插入檔案（複製一份到 attachments）")).grid(row=0, column=5, padx=2)
-        mk(act, "trash", self.clear_menu, tip=_("清除…")).grid(row=0, column=6, padx=2)
-        mk(act, "settings", self.open_settings, tip=_("設定")).grid(row=0, column=7, padx=(2, 0))
+        mk(act, "attach", self.attach_file, tip=_("插入檔案（複製一份到 attachments）")).grid(row=0, column=7, padx=2)
+        mk(act, "trash", self.clear_menu, tip=_("清除…")).grid(row=0, column=8, padx=2)
+        mk(act, "settings", self.open_settings, tip=_("設定")).grid(row=0, column=9, padx=(2, 0))
 
     SIDEBAR_DAYS = 45            # 左欄一次畫幾天（幾千張全畫會卡住主迴圈 30 秒）
     SIDEBAR_SEARCH_MAX = 200     # 搜尋結果最多列幾張
@@ -240,6 +248,7 @@ class MainWindow(ctk.CTk):
         shown, hidden = self._cap(shown, self.SIDEBAR_MAX_NOTES)
         more = len([d for d in days[limit:] if d not in shown])
         self.sidebar.refresh(shown, self.current, more=more, on_more=self._sidebar_more, hidden=hidden)
+        self.sidebar.set_tags(self.store.recent_tags())
 
     def _on_focus_in(self, _e=None) -> None:
         import time
@@ -299,6 +308,9 @@ class MainWindow(ctk.CTk):
                                    + _("已另存救援檔：{0}").format(rescue), parent=self)
 
     def open_note(self, nid: NoteId) -> None:
+        if self.current is not None and self.current != nid and not getattr(self, "_going_back", False):
+            self._back.append(self.current)        # 「返回」用
+            del self._back[:-50]
         if self.current is not None:
             self._flush_or_rescue()                # 同一張重開也要：存不進去時先寫救援檔，不讓磁碟上的舊版蓋掉畫面上的字
         else:
@@ -400,6 +412,7 @@ class MainWindow(ctk.CTk):
         m.add_command(label=_("舊版本…"), command=lambda: self.show_versions(nid))
         m.add_command(label=_("取消我的最愛") if self.store.is_favorite(nid) else _("加入我的最愛"),
                       command=lambda: self.toggle_favorite(nid))
+        m.add_command(label=_("複製筆記連結 [[標題]]"), command=lambda: self.copy_note_link(nid))
         share = tk.Menu(m, tearoff=0, font=(T.UI_FONT_FAMILY, 10))
         share.add_command(label=_("用郵件寄出（開郵件程式）"), command=lambda: self.share_mail(nid))
         share.add_command(label=_("複製到 Google Drive 資料夾"), command=lambda: self.share_drive(nid))
@@ -633,9 +646,14 @@ class MainWindow(ctk.CTk):
         applog.info("貼圖 %s", rel)
         return f"[{rel.name}]({rel.as_posix()})"
 
-    EXEC_EXT = {".exe", ".bat", ".cmd", ".ps1", ".lnk", ".vbs", ".js", ".msi", ".scr", ".com"}
+    EXEC_EXT = {".exe", ".bat", ".cmd", ".ps1", ".lnk", ".vbs", ".js", ".msi", ".scr", ".com",
+                ".hta", ".pif", ".reg", ".url", ".wsf", ".wsh", ".vbe", ".jse", ".cpl", ".inf", ".appref-ms",
+                ".py", ".pyw", ".jar", ".psm1", ".ps1xml", ".msc", ".scf", ".iso", ".img"}   # 開之前會先問（QA 審查補齊）
 
     def open_link(self, link: str) -> None:
+        if link.startswith("note:"):               # [[標題]]：跳到另一張
+            self.jump_to_note(link[5:])
+            return
         from .. import platform_
         p = self.store.resolve(link)
         if p.exists():
@@ -801,8 +819,8 @@ class MainWindow(ctk.CTk):
 
     def _bind_keys(self) -> None:
         """照 keymap 綁視窗層的快捷鍵（新筆記、今天、搜尋、左欄、前後一天、縮放）；內文框的交給 editor.bind_keys。改鍵時先解掉舊的。"""
-        for seq in getattr(self, "_key_seqs", ()):
-            self.unbind(seq)
+        for seq, fid in getattr(self, "_key_seqs", ()):
+            tk.Misc.unbind(self, seq, fid)             # 帶 funcid 才會刪掉 Tcl 命令（CTk 的 unbind 不接受）
         self._key_seqs = []
         actions = {
             "new_note": lambda _e: self.new_note(date.today()),
@@ -814,11 +832,12 @@ class MainWindow(ctk.CTk):
             "zoom_in": lambda _e: self.zoom(1),
             "zoom_out": lambda _e: self.zoom(-1),
             "calendar": lambda _e: self.show_calendar(),
+            "todo_list": lambda _e: self.show_todo_list(),
+            "back": lambda _e: self.go_back(),
         }
         for action, fn in actions.items():
             for seq in keys.sequences(self.keymap.key_of(action)):
-                self.bind(seq, fn)
-                self._key_seqs.append(seq)
+                self._key_seqs.append((seq, self.bind(seq, fn)))
         self.editor.bind_keys(self.keymap)
 
     def set_keys(self, km: keys.KeyMap) -> None:
@@ -840,6 +859,13 @@ class MainWindow(ctk.CTk):
         self.rebuild_ui()
         if panel_open:
             self.open_settings()
+
+    def _icon_scaling(self) -> float:
+        """螢幕縮放（125%／150%）：圖示要縮到這個倍數的像素才不會糊或鋸齒。"""
+        try:
+            return float(ctk.ScalingTracker.get_window_scaling(self))
+        except Exception:
+            return 1.0
 
     @staticmethod
     def _dock_positions(side: str):
@@ -904,6 +930,89 @@ class MainWindow(ctk.CTk):
             t.lift(); t.focus_force()
             return
         self._tour = TourDialog(self)
+
+    # ---- 筆記之間跳來跳去 ----
+    def jump_to_note(self, ref: str) -> None:
+        """[[標題]] 或 [[2026-10-29/003]]：找到就開（open_note 會把現在這張記進「返回」）。"""
+        nid = self.store.find_note(ref)
+        if nid is None:
+            self.editor._set_status(_("找不到筆記「{0}」").format(ref), fade=True)
+            return
+        self.open_note(nid)
+
+    def go_back(self) -> None:
+        """回上一張看過的筆記（連結跳過去、月曆點日期之後用）。"""
+        while self._back:
+            nid = self._back.pop()
+            if nid == self.current or not (self.store.exists(nid) or nid == TODO_ID):
+                continue
+            self._going_back = True
+            try:
+                self.open_note(nid)
+            finally:
+                self._going_back = False
+            return
+        self.editor._set_status(_("沒有上一張了"), fade=True)
+
+    def copy_note_link(self, nid: NoteId) -> None:
+        ref = next((r for r in self.store.list_notes(nid.day) if r.id == nid), None)
+        title = (ref.title if ref else "").strip()
+        link = f"[[{title}]]" if title and not title.startswith("（") else f"[[{nid.day.isoformat()}/{nid.seq:03d}]]"
+        self.clipboard_clear(); self.clipboard_append(link)
+        self.editor._set_status(_("已複製 {0}，貼到別張筆記裡，Ctrl+點就會跳過來").format(link), fade=True)
+
+    # ---- 範本、未完成清單、匯出區間 ----
+    def template_menu(self) -> None:
+        """「新筆記」旁的 ▾：列出 .app/templates 的 .md，選一個就用它開一張今天的筆記。"""
+        d = templates.ensure_defaults(self.store.root)
+        m = tk.Menu(self, tearoff=0)
+        for p in templates.list_templates(self.store.root):
+            m.add_command(label=p.stem, command=lambda pp=p: self.new_from_template(pp))
+        m.add_separator()
+        m.add_command(label=_("開啟範本資料夾（可自己加 .md）"), command=lambda: platform_.open_folder(d))
+        try:
+            m.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
+        finally:
+            m.grab_release()
+
+    def new_from_template(self, path: Path) -> None:
+        text = templates.render(path, date.today())
+        if not text.strip():
+            return
+        self.editor.flush()
+        nid = self.store.import_text(date.today(), text)
+        self._refresh_sidebar()
+        self.open_note(nid)
+        applog.info("用範本開新筆記 %s → %s", path.name, nid)
+
+    def show_todo_list(self) -> None:
+        """工具列「未完成」／Ctrl+L：所有筆記裡還沒打勾的 - [ ] 列成一頁。只開一個。"""
+        t = getattr(self, "_todo_view", None)
+        if t is not None and t.winfo_exists():
+            t.lift(); t.focus_force()
+            return
+        from . import todo_view
+        todo_view.show(self, self.store, on_open=self.open_note, quiet=_quiet_dialog)
+
+    def export_range(self) -> None:
+        """設定 → 存檔 →「匯出日期區間…」：選起訖日，合成一個 .md（週報、交接用）。"""
+        from . import datepick
+        today = date.today()
+        d1 = datepick.ask_date(self, today - timedelta(days=6), quiet=_quiet_dialog)
+        if d1 is None:
+            return
+        d2 = datepick.ask_date(self, today, quiet=_quiet_dialog)
+        if d2 is None:
+            return
+        if d1 > d2:
+            d1, d2 = d2, d1
+        path = filedialog.asksaveasfilename(parent=self, title=_("匯出日期區間"), initialfile=f"{d1.isoformat()}_{d2.isoformat()}.md",
+                                            defaultextension=".md", filetypes=[("Markdown", "*.md")])
+        if not path:
+            return
+        self.editor.flush()
+        n = self.store.export_range(d1, d2, Path(path))
+        self.editor._set_status(_("已匯出 {0} 張到 {1}").format(n, path), fade=True)
 
     def set_topmost(self, on: bool) -> None:
         self.settings = self.settings.with_(topmost=on)
@@ -1127,8 +1236,8 @@ class TourDialog(ctk.CTkToplevel):
                            "標題前的 ☆ 點一下加入「我的最愛」",
                            "行首打 - [ ] 就是打勾清單；左欄、日期、內文都有右鍵選單")),
         ("⚙", "設定在右上角", ("語言、字體、左欄放哪邊、快捷鍵（可以自己改）",
-                               "更新：有新版會提醒，可以關掉",
-                               "這個教學在 設定 → 更新 可以再看一次")),
+                               "換電腦前先 設定 → 存檔 → 匯出全部（筆記綁這台的 Windows 帳號）",
+                               "這個教學在 設定 → 說明 可以再看一次")),
     )
 
     def __init__(self, win: MainWindow):
@@ -1201,7 +1310,7 @@ class SettingsPanel(ctk.CTkToplevel):
     def THEME_LABELS(self) -> dict:
         return {k: _(v) for k, v in self._THEME_KEYS.items()}       # 開面板時才翻，換語言後才會是新的
 
-    PAGES = (("外觀", "◐"), ("存檔", "▤"), ("快捷鍵", "⌘"), ("更新", "↻"), ("紀錄", "≡"))   # (頁名, 導覽圖示)；頁名顯示時 _()
+    PAGES = (("外觀", "◐"), ("存檔", "▤"), ("快捷鍵", "⌘"), ("更新", "↻"), ("說明", "？"), ("紀錄", "≡"))   # (頁名, 導覽圖示)；頁名顯示時 _()
     TABS = tuple(n for n, _g in PAGES)             # check_strings 用（頁名要翻譯）
 
     def __init__(self, win: MainWindow):
@@ -1350,6 +1459,9 @@ class SettingsPanel(ctk.CTkToplevel):
                       command=lambda: platform_.open_folder(win.store.root / ".app" / "trash")).pack(side="left", padx=6)
         ctk.CTkButton(btns, text=_("還原上一次刪除"), font=T.ui_font(12), width=150, fg_color=T.BTN_SOFT_BG, hover_color=T.BTN_SOFT_HOVER, text_color=T.BTN_SOFT_FG, command=win.restore_last_deleted).pack(side="left")
         self._full(btns)
+        self._full(ctk.CTkButton(self.body, text=_("範本資料夾（新筆記 ▾ 用的 .md）"), font=T.ui_font(12), width=240,
+                                 fg_color=T.BTN_SOFT_BG, hover_color=T.BTN_SOFT_HOVER, text_color=T.BTN_SOFT_FG,
+                                 command=lambda: platform_.open_folder(templates.ensure_defaults(win.store.root))), pady=(0, 4))
         self._end_card()
 
         self._section(_("匯入／匯出（純文字 .md）"))
@@ -1358,6 +1470,8 @@ class SettingsPanel(ctk.CTkToplevel):
                           (_("匯入檔案…"), win.import_files), (_("匯入資料夾…"), win.import_folder)):
             ctk.CTkButton(io_row, text=text, font=T.ui_font(12), width=118, fg_color=T.BTN_SOFT_BG, hover_color=T.BTN_SOFT_HOVER, text_color=T.BTN_SOFT_FG, command=cmd).pack(side="left", padx=(0, 6))
         self._full(io_row)
+        self._full(ctk.CTkButton(self.body, text=_("匯出日期區間…（合成一個 .md，週報用）"), font=T.ui_font(12), width=260,
+                                 fg_color=T.BTN_SOFT_BG, hover_color=T.BTN_SOFT_HOVER, text_color=T.BTN_SOFT_FG, command=win.export_range), pady=(0, 4))
         self._note(_("匯入的筆記接在那一天後面編號，不會蓋掉既有的；換電腦前先「匯出全部」。"))
         self._end_card()
 
@@ -1392,6 +1506,7 @@ class SettingsPanel(ctk.CTkToplevel):
             self._note(line)
         self._end_card()
 
+        self._page("說明")                            # 教學、關於、版本紀錄放自己一頁（找教學的人不會去「更新」找）
         self._section(_("說明"))
         btn = ctk.CTkButton(self.body, text=_("再看一次使用教學"), font=T.ui_font(11), width=150, height=26, fg_color=T.BTN_SOFT_BG, hover_color=T.BTN_SOFT_HOVER, text_color=T.BTN_SOFT_FG, command=win.show_tour)
         self._row(_("使用教學"), btn, last=True)

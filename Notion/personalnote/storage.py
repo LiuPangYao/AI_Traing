@@ -131,6 +131,7 @@ class NoteStore:
         self._check_format()
         self._migrate_single_files()
         self._clean_tmp()
+        self._clean_trash()
 
     # ---- 索引（幾千張時每切一張都重掃 1500 個資料夾要 3 秒，所以掃一次記起來）----
     def _build_index(self) -> dict[date, list[NoteRef]]:
@@ -209,6 +210,23 @@ class NoteStore:
             return True
         return False
 
+    TRASH_KEEP_DAYS = 30
+
+    def _clean_trash(self, now: Optional[datetime] = None) -> int:
+        """啟動時把 TRASH_KEEP_DAYS 天前丟進垃圾桶的檔刪掉（以前永遠不清，QA 審查）。回刪了幾個。"""
+        trash = self.root / APP_SUBDIR / TRASH_DIR
+        if not trash.is_dir():
+            return 0
+        now = now or datetime.now()
+        n = 0
+        for p in trash.iterdir():
+            try:
+                if p.is_file() and (now - datetime.fromtimestamp(p.stat().st_mtime)).days >= self.TRASH_KEEP_DAYS:
+                    p.unlink(); n += 1
+            except OSError:
+                continue
+        return n
+
     def _clean_tmp(self) -> None:
         """上次寫到一半的 .tmp 清掉（正式檔一定完整，因為改名是最後一步）。"""
         for p in self.root.glob("*/*.tmp"):
@@ -240,7 +258,7 @@ class NoteStore:
             want = json.dumps({"format": FORMAT_VERSION, "written_by": __version__}, ensure_ascii=False, indent=2)
             try:
                 if not p.is_file() or p.read_text(encoding="utf-8") != want:   # 內容一樣就不碰，備份工具才不會天天看到異動
-                    p.write_text(want, encoding="utf-8")
+                    _atomic_write_bytes(p, want.encode("utf-8"))
             except OSError:
                 pass
 
@@ -433,8 +451,7 @@ class NoteStore:
             favs.append(nid)
         p = self._fav_path()
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps([f"{n.day.isoformat()}/{n.seq:03d}" for n in favs], ensure_ascii=False, indent=2),
-                     encoding="utf-8")
+        _atomic_write_bytes(p, json.dumps([f"{n.day.isoformat()}/{n.seq:03d}" for n in favs], ensure_ascii=False, indent=2).encode("utf-8"))
 
     def favorite_refs(self) -> list[NoteRef]:
         """左欄「★ 我的最愛」那組用：(編號, 標題)，照 favorites() 的順序。"""
@@ -447,6 +464,7 @@ class NoteStore:
 
     def delete(self, nid: NoteId) -> None:
         self._remove_to_trash(self.path_for(nid))
+        shutil.rmtree(self._history_dir(nid), ignore_errors=True)   # 舊版本快照跟著走（還原刪除時重新開始留）
         self._remove_day_dir_if_empty(nid.day)
         self._touch(nid.day)
 
@@ -579,6 +597,62 @@ class NoteStore:
         dest_file = Path(dest_file)
         dest_file.parent.mkdir(parents=True, exist_ok=True)
         dest_file.write_text(text, encoding="utf-8", newline="\n")
+
+    def find_note(self, ref: str) -> Optional[NoteId]:
+        """[[…]] 連結的目標：「2026-10-29/003」或「2026-10-29-003」是編號；其餘當標題找（不分大小寫，新的日期優先）。"""
+        s = str(ref).strip()
+        m = re.match(r"^(\d{4}-\d{2}-\d{2})[/-](\d{1,3})$", s)
+        if m:
+            try:
+                nid = NoteId(date.fromisoformat(m.group(1)), int(m.group(2)))
+            except ValueError:
+                return None
+            return nid if self.exists(nid) else None
+        key = s.lower()
+        for d in self.list_days():
+            for r in self.list_notes(d):
+                if r.title.strip().lower() == key:
+                    return r.id
+        return None
+
+    def export_range(self, start: date, end: date, dest_file: Path) -> int:
+        """start～end（含）每一天合成一個 .md：每天一個「# 2026/10/28」，底下是那天各張（「# 標題」降成「## 標題」）。回張數。"""
+        if start > end:
+            start, end = end, start
+        parts = []
+        n = 0
+        for d in sorted(self.list_days()):
+            if d < start or d > end or d >= TODO_DAY - timedelta(days=1):
+                continue
+            notes = []
+            for r in self.list_notes(d):
+                text, ok = self.try_load(r.id)
+                if ok and text.strip():
+                    t = text.rstrip("\n")
+                    notes.append("#" + t if t.startswith("# ") else t)
+                    n += 1
+            if notes:
+                parts.append(f"# {d.year}/{d.month:02d}/{d.day:02d}\n\n" + "\n\n".join(notes))
+        dest_file = Path(dest_file)
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        dest_file.write_text("\n\n".join(parts) + "\n", encoding="utf-8", newline="\n")
+        return n
+
+    def recent_tags(self, days: int = 60, limit: int = 8, today: Optional[date] = None) -> list[str]:
+        """最近 days 天筆記裡出現最多的 #標籤（含 #），給左欄搜尋框下面那排。"""
+        from collections import Counter
+        from .markup import TAG_RE
+        today = today or date.today()
+        since = today - timedelta(days=days)
+        c: Counter = Counter()
+        for d in self.list_days():
+            if d < since or d >= TODO_DAY - timedelta(days=1):
+                continue
+            for r in self.list_notes(d):
+                text, ok = self.try_load(r.id)
+                if ok:
+                    c.update("#" + m.group(1) for m in TAG_RE.finditer(text))
+        return [t for t, _n in c.most_common(limit)]
 
     def export_day(self, day: date, dest_file: Path) -> int:
         """一整天的筆記合成一個 .md（每張「# 標題」開頭，中間空一行隔開）。回匯出的張數；解不開的跳過。"""

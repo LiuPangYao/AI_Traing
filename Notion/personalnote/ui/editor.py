@@ -84,6 +84,8 @@ def _tk_to_py_col(line: str, tk_col: int) -> int:
 _BASE_CACHE: dict = {}          # (路徑, mtime) → 先縮到最多 1600 寬的 PIL 影像；超大圖不用每次重讀
 _BASE_MAX_W = 1600
 _BASE_CACHE_MAX = 40
+_BASE_CACHE_BYTES = 64 * 1024 * 1024    # 總量上限（以前只限張數，40 張大圖可到 200 MB；QA 審查）
+_BASE_CACHE_SIZE: dict = {}             # key → 這張佔的位元組
 
 
 def _base_image(path: Path):
@@ -101,9 +103,12 @@ def _base_image(path: Path):
     w, h = img.size
     if w > _BASE_MAX_W:
         img = img.resize((_BASE_MAX_W, max(1, int(h * _BASE_MAX_W / w))), Image.LANCZOS)
-    if len(_BASE_CACHE) >= _BASE_CACHE_MAX:
-        _BASE_CACHE.pop(next(iter(_BASE_CACHE)))           # 最早放進來的先丟
+    size = img.width * img.height * len(img.getbands())
+    while _BASE_CACHE and (len(_BASE_CACHE) >= _BASE_CACHE_MAX or sum(_BASE_CACHE_SIZE.values()) + size > _BASE_CACHE_BYTES):
+        old = next(iter(_BASE_CACHE))                      # 最早放進來的先丟
+        _BASE_CACHE.pop(old); _BASE_CACHE_SIZE.pop(old, None)
     _BASE_CACHE[key] = (img, (w, h))                       # 也記原始尺寸，寬度換算用
+    _BASE_CACHE_SIZE[key] = size
     return _BASE_CACHE[key]
 
 
@@ -166,7 +171,7 @@ class Editor(ctk.CTkFrame):
         self.title = ctk.CTkEntry(self, font=self._title_font, placeholder_text=_("標題（點這裡改）"),
                                   corner_radius=T.RADIUS, fg_color="transparent", border_width=1,
                                   border_color=T.TEXT_MUTED, height=40)
-        self.title.grid(row=0, column=0, sticky="ew", padx=4, pady=(0, 2))
+        self.title.grid(row=0, column=0, sticky="ew", padx=4, pady=(2, 10))      # 標題、格式列、內文之間留白（Peter：很擠）
         self.title.bind("<KeyRelease>", self._on_title_changed)
         self.title.bind("<Return>", lambda _e: (self.text.focus_set(), "break")[1])
         self.title.bind("<Control-MouseWheel>", self._on_ctrl_wheel)
@@ -176,7 +181,7 @@ class Editor(ctk.CTkFrame):
         # 格式列：選字後按一下就包上記號；「指令」插一個 ``` 區塊。預設收起，左邊「▸ 格式」點開
         self._on_format_toggle = on_format_toggle
         bar_row = ctk.CTkFrame(self, fg_color="transparent")
-        bar_row.grid(row=1, column=0, sticky="w", pady=(0, 4))
+        bar_row.grid(row=1, column=0, sticky="w", padx=4, pady=(0, 8))
         # 這顆要夠明顯（Peter：淡灰小字一般人不知道能按）：有框、正常字色、標籤寫「格式 ▸」
         self._fmt_toggle = ctk.CTkButton(bar_row, text=_("格式 ▸"), width=64, height=26, corner_radius=6, font=T.ui_font(11, "bold"),
                                          fg_color="transparent", border_width=1, border_color=T.ACCENT, hover_color=T.ROW_HOVER,
@@ -233,6 +238,14 @@ class Editor(ctk.CTkFrame):
         self.text.bind("<Control-MouseWheel>", self._on_ctrl_wheel)
         self.text.bind("<Control-Button-1>", self._on_ctrl_click)
         self.text.bind("<Return>", self._on_return)
+        self.text.bind("<Tab>", lambda _e: self._on_tab(False))              # 清單行：縮排子項
+        for seq in ("<Shift-Tab>", "<ISO_Left_Tab>"):                       # Windows／X11 的 Shift+Tab 名字不同
+            try:
+                self.text.bind(seq, lambda _e: self._on_tab(True))
+            except Exception:
+                pass
+        self.text.bind("<FocusIn>", lambda _e: self._sync_ime_font(), add="+")   # 輸入法選字的字跟內文一樣大
+        self.title.bind("<FocusIn>", lambda _e: self._sync_ime_font(), add="+")
         self.text.bind("<FocusOut>", lambda _e: self.flush())   # 切到別的視窗就先存，關機也少丟字
         self.text.bind("<Control-v>", self._on_paste)            # 剪貼簿是圖就存成附件並顯示
         self.text.bind("<Button-1>", self._on_click)             # 點圖 → 出現縮放把手
@@ -327,6 +340,29 @@ class Editor(ctk.CTkFrame):
         for f in (self._font_bold, self._font_italic, self._font_mono):
             f.configure(size=size)
         self._apply_tag_fonts()
+        self._sync_ime_font()
+
+    def _sync_ime_font(self) -> None:
+        """Windows 輸入法的組字視窗（注音選字）用跟內文／標題一樣的字型與大小。"""
+        from .. import platform_
+        platform_.set_ime_font(self.text._textbox, self._font.cget("family"), self._font.cget("size"))
+        platform_.set_ime_font(self.title._entry, self._title_font.cget("family"), self._title_font.cget("size"))
+
+    def _on_tab(self, out: bool) -> Optional[str]:
+        """清單行（1.／-／- [ ]）按 Tab 縮排兩格、Shift+Tab 退回；不是清單行就照 tk 預設。"""
+        from .. import listing
+        tk_text = self.text._textbox
+        line_no = int(tk_text.index("insert").split(".")[0])
+        line = tk_text.get(f"{line_no}.0", f"{line_no}.end")
+        if listing.next_marker(line) is None and not listing.CHECK_RE.match(line):
+            return None
+        if out:
+            n = len(line) - len(line.lstrip(" "))
+            if n:
+                tk_text.delete(f"{line_no}.0", f"{line_no}.{min(2, n)}")
+        else:
+            tk_text.insert(f"{line_no}.0", "  ")
+        return "break"
 
     def _apply_tag_fonts(self) -> None:
         """粗體／斜體／等寬的 tag 字型。CTkTextbox.tag_config 不准給 font（它怕跟 DPI 縮放打架），
@@ -452,22 +488,22 @@ class Editor(ctk.CTkFrame):
         """照快捷鍵表（keys.KeyMap）綁內文框與標題框的鍵：存檔、重點、紅字、粗體、斜體、指令區塊。改鍵時先解掉上次綁的。
         字母綁大小寫兩種（Caps Lock 開著 tk 送大寫）；Ctrl+H 與 Ctrl+Shift+H 同時綁時 tk 挑修飾鍵較多的那個（見 keys.sequences）。"""
         from .. import keys
-        for w, seq in self._key_seqs:
-            w.unbind(seq)
+        for w, seq, fid in self._key_seqs:
+            w.unbind(seq, fid)                         # 帶 funcid 才會把 Tcl 命令也刪掉（不然每次改鍵都留一份）
         self._key_seqs = []
+        text, title = self.text._textbox, self.title._entry   # 綁在 tk 的內層元件（CTk 的 unbind 不接受 funcid）
 
         def bind(action, widget, fn):
             for seq in keys.sequences(keymap.key_of(action)):
-                widget.bind(seq, fn)
-                self._key_seqs.append((widget, seq))
+                self._key_seqs.append((widget, seq, widget.bind(seq, fn)))
 
-        bind("save", self.text, lambda _e: self.flush())
-        bind("save", self.title, lambda _e: self.flush())
-        bind("mark", self.text, lambda _e: self._style_key("mark"))         # 順便擋掉 tk 自己的 Ctrl+H（退格）
-        bind("red", self.text, lambda _e: self._style_key("red"))
-        bind("bold", self.text, lambda _e: self._style_key("bold"))
-        bind("italic", self.text, lambda _e: self._style_key("italic"))     # 擋掉 tk 的 Ctrl+I（插 tab）
-        bind("code", self.text, lambda _e: (self.insert_code_block(), "break")[1])
+        bind("save", text, lambda _e: self.flush())
+        bind("save", title, lambda _e: self.flush())
+        bind("mark", text, lambda _e: self._style_key("mark"))         # 順便擋掉 tk 自己的 Ctrl+H（退格）
+        bind("red", text, lambda _e: self._style_key("red"))
+        bind("bold", text, lambda _e: self._style_key("bold"))
+        bind("italic", text, lambda _e: self._style_key("italic"))     # 擋掉 tk 的 Ctrl+I（插 tab）
+        bind("code", text, lambda _e: (self.insert_code_block(), "break")[1])
 
     def destroy(self) -> None:
         for name in ("_fade_job", "_save_timer", "_hl_timer"):       # 排程中的工作先取消，視窗關了才不會 bgerror

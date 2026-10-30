@@ -64,8 +64,8 @@ class UsageLog:
         if not self._dirty or (not force and now - self._last_save < SAVE_EVERY):
             return False
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(json.dumps(self._data, ensure_ascii=False, indent=0, sort_keys=True), encoding="utf-8")
+            from .fileio import atomic_write_text
+            atomic_write_text(self.path, json.dumps(self._data, ensure_ascii=False, indent=0, sort_keys=True))
         except OSError:
             return False
         self._dirty = False

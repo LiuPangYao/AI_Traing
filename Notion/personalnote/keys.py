@@ -29,6 +29,8 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("prev_day", "Ctrl+PgUp", "前一天"),
     ("next_day", "Ctrl+PgDn", "後一天"),
     ("calendar", "Ctrl+M", "月曆（哪幾天有筆記、每天用多久）"),
+    ("todo_list", "Ctrl+L", "未完成清單（所有筆記裡還沒打勾的）"),
+    ("back", "Alt+Left", "回上一張筆記（連結跳過去後返回）"),
     ("zoom_in", "Ctrl+=", "字體放大（Ctrl+滾輪也可）"),
     ("zoom_out", "Ctrl+-", "字體縮小"),
 )
@@ -46,6 +48,9 @@ GESTURES: tuple[tuple[str, str], ...] = (
     ("拖檔案進視窗", ".md／.txt（1 MB 以內）匯成今天的筆記；其他檔不收，附件用 📎 或 Ctrl+V 貼圖"),
     ("長按筆記列再拖", "同一天裡上下調整順序（搜尋中不能排）"),
     ("筆記列前的 ☆", "點一下加入我的最愛，最上面會多一組「★ 我的最愛」；再點一次取消"),
+    ("[[標題]]", "連到另一張筆記：Ctrl+點跳過去，「返回」回來；右鍵筆記列「複製筆記連結」"),
+    ("清單行按 Tab／Shift+Tab", "縮排／取消縮排子項"),
+    ("新筆記旁的 ▾", "用範本開一張（會議紀錄、週報…；範本在 .app/templates，可自己加）"),
 )
 RESERVED = {"Ctrl+C", "Ctrl+V", "Ctrl+X", "Ctrl+Z", "Ctrl+Y", "Ctrl+A"}
 

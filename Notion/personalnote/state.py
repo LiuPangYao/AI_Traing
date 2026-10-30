@@ -48,7 +48,8 @@ class AppState:
     def save(self, note_dir: Path) -> None:
         path = note_dir / APP_SUBDIR / STATE_FILE
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(asdict(self), ensure_ascii=False, indent=2), encoding="utf-8")
+        from .fileio import atomic_write_text
+        atomic_write_text(path, json.dumps(asdict(self), ensure_ascii=False, indent=2))
 
     def with_(self, **kw: Any) -> "AppState":
         return replace(self, **kw)
