@@ -56,11 +56,8 @@ MONO_FAMILY = __import__("personalnote.platform_", fromlist=["x"]).mono_font_fam
 LINK_HEAD, LINK_TAIL = 26, 16
 
 
-def _blend(c1: str, c2: str, t: float) -> str:
-    """兩個 #rrggbb 之間取一點（t=0 是 c1，t=1 是 c2）：狀態列淡出用。"""
-    a = [int(c1[i:i + 2], 16) for i in (1, 3, 5)]
-    b = [int(c2[i:i + 2], 16) for i in (1, 3, 5)]
-    return "#" + "".join(f"{round(x + (y - x) * t):02x}" for x, y in zip(a, b))
+from . import anim
+_blend = anim.blend                      # 動畫（時間、曲線、混色）統一在 anim.py
 
 
 def _py_to_tk_col(line: str, col: int) -> int:
@@ -521,7 +518,7 @@ class Editor(ctk.CTkFrame):
         super().destroy()
 
     STATUS_FADE_AFTER_MS = 2500
-    STATUS_FADE_STEPS = 6
+    STATUS_FADE_STEPS = anim.FADE // anim.FRAME     # 淡出幀數（動畫規則在 anim.py）
 
     def _set_status(self, text: str, fade: bool = False) -> None:
         """右下角那行字。fade=True（已儲存）：停 2.5 秒後慢慢淡掉，不要一直亮著。其他（輸入中、存檔失敗、唯讀）留著。"""
@@ -536,12 +533,13 @@ class Editor(ctk.CTkFrame):
         self._fade_job = None
         if not self.status.winfo_exists():
             return
-        if step >= self.STATUS_FADE_STEPS:
+        total = max(1, anim.FADE // anim.FRAME)
+        if step >= total:
             self.status.configure(text="", text_color=self._muted_color())
             return
         bg = T.MAIN_BG[1] if self._dark() else T.MAIN_BG[0]
-        self.status.configure(text_color=_blend(self._muted_color(), bg, (step + 1) / (self.STATUS_FADE_STEPS + 1)))
-        self._fade_job = self.after(70, lambda: self._fade_status(step + 1))
+        self.status.configure(text_color=anim.blend(self._muted_color(), bg, anim.ease_out((step + 1) / (total + 1))))
+        self._fade_job = self.after(anim.FRAME, lambda: self._fade_status(step + 1))
 
     def refresh_theme(self) -> None:
         self._apply_link_color()

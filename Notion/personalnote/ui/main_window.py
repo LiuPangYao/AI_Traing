@@ -294,10 +294,10 @@ class MainWindow(ctk.CTk):
     def _prev_day(self) -> date:
         return date.today() if self.current_day == TODO_DAY else yesterday(self.current_day)   # 待辦事項的「前一天」＝今天
 
-    def go_day(self, day: date) -> None:
-        """跳到某一天：有筆記開第一張，沒有就給一張新的（不打字不會建檔）。"""
+    def go_day(self, day: date, pulse: bool = False) -> None:
+        """跳到某一天：有筆記開第一張，沒有就給一張新的（不打字不會建檔）。pulse：左欄那列閃一下（月曆、連結跳過來時）。"""
         refs = self.store.list_notes(day)
-        self.open_note(refs[0].id if refs else self.store.next_id(day))
+        self.open_note(refs[0].id if refs else self.store.next_id(day), pulse=pulse)
 
     def _flush_or_rescue(self) -> None:
         """先存；存不進去（磁碟拔掉、加密失敗）就把手上的字寫成救援檔並提示，呼叫端接著才可以把內容換掉。"""
@@ -307,7 +307,7 @@ class MainWindow(ctk.CTk):
             messagebox.showwarning(APP_NAME, _("這張筆記存不進去：{0}\n").format(self.editor.last_error)
                                    + _("已另存救援檔：{0}").format(rescue), parent=self)
 
-    def open_note(self, nid: NoteId) -> None:
+    def open_note(self, nid: NoteId, pulse: bool = False) -> None:
         if self.current is not None and self.current != nid and not getattr(self, "_going_back", False):
             self._back.append(self.current)        # 「返回」用
             del self._back[:-50]
@@ -319,6 +319,8 @@ class MainWindow(ctk.CTk):
         text, ok = self.store.try_load(nid)
         self.editor.set_text(text, read_only=not ok)   # 解不開的只能看，不會被存檔蓋掉
         applog.info("開啟 %s-%03d 可讀=%s 長度=%d", nid.day, nid.seq, ok, len(text))
+        if pulse:
+            self.after(0, lambda: self.sidebar.pulse(nid))     # 左欄畫好之後再閃（anim.APPEAR）
         self._refresh_day_label()
         if self.sidebar.has(nid):
             self.sidebar.set_selected(nid)            # 已經在左欄：只換選取，不整欄重畫
@@ -365,6 +367,7 @@ class MainWindow(ctk.CTk):
         try:
             if not self.sidebar.set_title(self.current, title_of(text)) and is_new:
                 self._refresh_sidebar()          # 不是新的卻不在左欄＝被搜尋濾掉或超過上限：不重畫（會卡 1 秒）
+                self.sidebar.pulse(self.current) # 新的一列剛出現：閃一下
         except Exception:
             applog.exception("左欄更新失敗（檔案已存好）")
 
@@ -501,6 +504,9 @@ class MainWindow(ctk.CTk):
         title = next((r.title for r in self.store.list_notes(nid.day) if r.id == nid), "")
         if not messagebox.askyesno(APP_NAME, _("刪除「{0}」？（會先搬到垃圾桶，設定裡可以還原）").format(title), parent=self):
             return
+        self.sidebar.animate_remove(nid, lambda: self._delete_now(nid))   # 列先收合，再真的刪（anim.REMOVE）
+
+    def _delete_now(self, nid: NoteId) -> None:
         if nid == self.current:
             self.editor.set_text("")
         self.store.delete(nid)
@@ -541,10 +547,8 @@ class MainWindow(ctk.CTk):
     def clear_current(self) -> None:
         if self.current is None:
             return
-        self.editor.set_text("")
-        self.store.delete(self.current)
-        self._refresh_sidebar()              # 先重畫左欄：接著開的那張編號可能跟刪掉的一樣，不重畫會留舊列
-        self.go_day(self.current.day)
+        nid = self.current
+        self.sidebar.animate_remove(nid, lambda: self._delete_now(nid))   # 先重畫左欄：接著開的那張編號可能跟刪掉的一樣
 
     def clear_day(self, day: date) -> None:
         n = len(self.store.list_notes(day))
@@ -938,7 +942,7 @@ class MainWindow(ctk.CTk):
         if nid is None:
             self.editor._set_status(_("找不到筆記「{0}」").format(ref), fade=True)
             return
-        self.open_note(nid)
+        self.open_note(nid, pulse=True)
 
     def go_back(self) -> None:
         """回上一張看過的筆記（連結跳過去、月曆點日期之後用）。"""
@@ -948,7 +952,7 @@ class MainWindow(ctk.CTk):
                 continue
             self._going_back = True
             try:
-                self.open_note(nid)
+                self.open_note(nid, pulse=True)
             finally:
                 self._going_back = False
             return
@@ -992,7 +996,7 @@ class MainWindow(ctk.CTk):
             t.lift(); t.focus_force()
             return
         from . import todo_view
-        todo_view.show(self, self.store, on_open=self.open_note, quiet=_quiet_dialog)
+        todo_view.show(self, self.store, on_open=lambda n: self.open_note(n, pulse=True), quiet=_quiet_dialog)
 
     def export_range(self) -> None:
         """設定 → 存檔 →「匯出日期區間…」：選起訖日，合成一個 .md（週報、交接用）。"""
@@ -1133,7 +1137,7 @@ class MainWindow(ctk.CTk):
             c.lift(); c.focus_force()
             return
         from . import calendar as cal
-        cal.show(self, self.store, self.usage, on_pick=self.go_day, quiet=_quiet_dialog)
+        cal.show(self, self.store, self.usage, on_pick=lambda d: self.go_day(d, pulse=True), quiet=_quiet_dialog)
 
     def _check_day_change(self) -> None:
         """程式常常整晚開著：過了午夜，左欄的「● 今天」還停在昨天，按「新筆記」就會加到昨天。

@@ -8,6 +8,7 @@ from datetime import date
 os.environ["NOTE_ALLOW_MULTI"] = "1"
 os.environ["NOTE_UPDATE_CHECK"] = "0"   # 測試不連網
 os.environ["NOTE_TOUR"] = "0"           # 教學另外測
+os.environ["NOTE_ANIM"] = "0"           # 動畫立刻完成，檢查才不用等
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from PIL import Image                                              # noqa: E402
@@ -109,8 +110,8 @@ check(not e._hint.winfo_ismapped(), "打字後提示消失")
 e._mark_dirty(); e.flush(); win.update()
 check(e.status.cget("text").startswith("已儲存"), "存完顯示已儲存")
 e.STATUS_FADE_AFTER_MS = 1; e._set_status("已儲存 x", fade=True); win.update(); time.sleep(0.05); win.update()
-for _ in range(12):
-    time.sleep(0.08); win.update()
+for _ in range(60):                      # 淡出 400 ms、每幀 16 ms：每次 update 只跑一幀
+    time.sleep(0.02); win.update()
 check(e.status.cget("text") == "", "已儲存幾秒後淡出")
 win.destroy()
 

@@ -24,6 +24,7 @@ from ..i18n import _
 from .. import imefix
 from ..storage import NoteId, NoteRef
 from . import theme as T
+from . import anim
 
 
 def _c(pair) -> str:
@@ -266,6 +267,24 @@ class Sidebar(ctk.CTkFrame):
             lbl.pack(side="left", padx=(0, 2), pady=(0, 4))
             if self._on_tag is not None:
                 lbl.bind("<Button-1>", lambda _e, tt=t: self._on_tag(tt))
+
+    def pulse(self, nid: NoteId) -> None:
+        """「這一張」出現或跳到它時：那列從淡主色淡回底色（anim.APPEAR），讓眼睛跟得上。"""
+        lbl = self._rows.get(nid)
+        if lbl is None or not lbl.winfo_exists():
+            return
+        to = self._sel_bg if nid == self._selected else self._day_bg_of(nid.day)
+        frame, band = lbl.master, self._bands.get(nid)
+        widgets = [frame, lbl] + [w for w in frame.winfo_children() if w is not band and w is not lbl]
+        anim.fade_bg(widgets, anim.blend(self._accent, to, 0.45), to)
+
+    def animate_remove(self, nid: NoteId, then) -> None:
+        """刪那一張：列先收合（anim.REMOVE）再呼叫 then（真的刪並重畫）。列不在畫面上就直接 then。"""
+        lbl = self._rows.get(nid)
+        if lbl is None or not lbl.winfo_exists():
+            then()
+            return
+        anim.collapse(lbl.master, then)
 
     def has(self, nid: NoteId) -> bool:
         return nid in self._rows
