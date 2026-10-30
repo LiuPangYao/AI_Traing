@@ -15,8 +15,8 @@ from ..usage import UsageLog, fmt_duration
 from ..storage import NoteStore
 from . import theme as T
 
-LEVELS_LIGHT = ("#ffffff", "#dbe7fd", "#b7cffb", "#86aff7", "#4f8cff")   # 用 0／<10／<30／<60／≥60 分
-LEVELS_DARK = ("#2b2f38", "#2f3f5e", "#355084", "#3b64ad", "#4f8cff")
+LEVELS_LIGHT = ("#ffffff", "#e4e6fb", "#c3c8f6", "#98a1ee", "#5f6ad9")   # 用 0／<10／<30／<60／≥60 分
+LEVELS_DARK = ("#2a2c33", "#33375a", "#3f4670", "#4d579a", "#8b93ff")
 
 
 def level(seconds: int) -> int:

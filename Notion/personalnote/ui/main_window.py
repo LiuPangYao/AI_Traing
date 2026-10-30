@@ -187,22 +187,22 @@ class MainWindow(ctk.CTk):
 
         # 第二排：動作
         act = ctk.CTkFrame(parent, fg_color="transparent")
-        act.grid(row=1, column=0, sticky="ew", pady=(2, 6))
+        act.grid(row=1, column=0, sticky="ew", pady=(6, 8))     # 跟上面日期那排、下面標題框都留白（Peter：功能之間的間距）
         act.grid_columnconfigure(6, weight=1)
-        mk(act, "menu", self.toggle_sidebar, tip=lambda: _("收起／展開左欄") + f"（{self.keymap.key_of('sidebar')}）").grid(row=0, column=0, padx=(0, 2))
-        mk(act, "today", lambda: self.go_day(date.today()), text=_("今天"), width=64, tip=_("回到今天")).grid(row=0, column=1, padx=2)
+        mk(act, "menu", self.toggle_sidebar, tip=lambda: _("收起／展開左欄") + f"（{self.keymap.key_of('sidebar')}）").grid(row=0, column=0, padx=(0, 6))
+        mk(act, "today", lambda: self.go_day(date.today()), text=_("今天"), width=64, tip=_("回到今天")).grid(row=0, column=1, padx=5)
         mk(act, "cal", self.show_calendar, text=_("月曆"), width=64,
-           tip=lambda: _("月曆：哪幾天有筆記、每天用多久") + f"（{self.keymap.key_of('calendar')}）").grid(row=0, column=2, padx=2)
+           tip=lambda: _("月曆：哪幾天有筆記、每天用多久") + f"（{self.keymap.key_of('calendar')}）").grid(row=0, column=2, padx=5)
         mk(act, "plus", lambda: self.new_note(date.today()), text=_("新筆記"), width=92, plain=False,
-           fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER, tip=lambda: _("今天加一張") + f"（{self.keymap.key_of('new_note')}）").grid(row=0, column=3, padx=(2, 0))
+           fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER, tip=lambda: _("今天加一張") + f"（{self.keymap.key_of('new_note')}）").grid(row=0, column=3, padx=(6, 0))
         mk(act, "tmpl", self.template_menu, text="▾", width=26, plain=False, fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
-           tip=_("用範本開一張新筆記")).grid(row=0, column=4, padx=(0, 2))
+           tip=_("用範本開一張新筆記")).grid(row=0, column=4, padx=(0, 6))
         mk(act, "todo", self.show_todo_list, text=_("未完成"), width=64,
-           tip=lambda: _("未完成清單：所有筆記裡還沒打勾的") + f"（{self.keymap.key_of('todo_list')}）").grid(row=0, column=5, padx=2)
+           tip=lambda: _("未完成清單：所有筆記裡還沒打勾的") + f"（{self.keymap.key_of('todo_list')}）").grid(row=0, column=5, padx=5)
         # 復原／重做搬到內文上方的格式列（文字按鈕，箭頭圖示 Peter 說看不懂），這一排才放得下 640 寬
-        mk(act, "attach", self.attach_file, tip=_("插入檔案（複製一份到 attachments）")).grid(row=0, column=7, padx=2)
-        mk(act, "trash", self.clear_menu, tip=_("清除…")).grid(row=0, column=8, padx=2)
-        mk(act, "settings", self.open_settings, tip=_("設定")).grid(row=0, column=9, padx=(2, 0))
+        mk(act, "attach", self.attach_file, tip=_("插入檔案（複製一份到 attachments）")).grid(row=0, column=7, padx=5)
+        mk(act, "trash", self.clear_menu, tip=_("清除…")).grid(row=0, column=8, padx=5)
+        mk(act, "settings", self.open_settings, tip=_("設定")).grid(row=0, column=9, padx=(6, 0))
 
     SIDEBAR_DAYS = 45            # 左欄一次畫幾天（幾千張全畫會卡住主迴圈 30 秒）
     SIDEBAR_SEARCH_MAX = 200     # 搜尋結果最多列幾張

@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 ENTRIES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("1.0.8",
+     ("淺色主題改成白底黑字、藍色選中；工具列按鈕之間與上下留白拉開",),
+     ("Light theme is now white background, black text, blue selection; more spacing between toolbar buttons and rows",)),
     ("1.0.7",
      ("筆記連結：[[標題]] Ctrl+點跳到另一張，「返回」（Alt+Left）回來；右鍵「複製筆記連結」",
       "範本：新筆記旁的 ▾（會議紀錄、週報…，.app/templates 可自己加）；未完成清單（Ctrl+L）；匯出日期區間；清單行 Tab 縮排；搜尋框下列最近標籤",

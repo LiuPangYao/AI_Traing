@@ -4,27 +4,27 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-ACCENT = ("#2f6fed", "#4f8cff")          # 主色：選中的筆記、按鈕
-ACCENT_HOVER = ("#245bd0", "#3b78f0")
-SIDEBAR_BG = ("#f1f3f7", "#1b1d22")
-MAIN_BG = ("#ffffff", "#15161a")
-EDITOR_BG = ("#eef1f6", "#262a33")       # 可以打字的地方：要跟外框明顯不同（Peter：不然不知道哪裡能輸入）
-EDITOR_BORDER = ("#c9cfda", "#3a3f4b")   # 標題欄、內文框的細邊
-TEXT = ("#1f2328", "#e6e6e6")
-TEXT_MUTED = ("#6b7280", "#9aa0a6")
-ROW_HOVER = ("#e4e8f0", "#2a2d35")
-DAY_HEADER = ("#374151", "#c7cbd1")
-DAY_ACTIVE_BG = ("#e4e8f0", "#272a32")   # 左欄：選中那張所在的那一天整組的底色（比左欄深一階就好，選中那張另外有色帶）
-ROW_SELECTED_BG = ("#d6e2fb", "#2b3a5c") # 左欄：選中那張的淡底（左邊再加一條主色色帶，不整條塗藍）
+ACCENT = ("#4f5bd5", "#8b93ff")   # 主色：選中的筆記、按鈕、連結（靛藍，比純藍柔和；Peter 2026-10-30 要一套好一點的配色）
+ACCENT_HOVER = ("#3f49b8", "#7a82f0")
+SIDEBAR_BG = ("#f0eee9", "#1f2026")   # 左欄：暖灰（紙張感）
+MAIN_BG = ("#f7f6f2", "#17181c")   # 視窗底：暖白，比內文框暗一點點，白框才看得出來
+EDITOR_BG = ("#ffffff", "#24262c")   # 可以打字的地方：純白
+EDITOR_BORDER = ("#d9d6cf", "#3a3d46")   # 標題欄、內文框的細邊
+TEXT = ("#1c1b19", "#e8e6e3")   # 近黑（不用純黑，長時間看比較不刺）
+TEXT_MUTED = ("#7a776f", "#9b9a95")
+ROW_HOVER = ("#e6e3dc", "#2c2e35")
+DAY_HEADER = ("#3f3e3a", "#c5c4bf")
+DAY_ACTIVE_BG = ("#e8e5dd", "#2a2c33")   # 左欄：選中那張所在的那一天整組的底色
+ROW_SELECTED_BG = ("#dde0f7", "#33375a")   # 左欄：選中那張的淡靛藍底（左邊再加一條主色色帶）
 DANGER = ("#d9534f", "#e06c66")
-CARD_BG = ("#ffffff", "#2b2f38")      # 設定面板的卡片（比視窗底色亮一階）
-DIVIDER = ("#e6e9ef", "#3a3e48")      # 卡片裡列與列之間的細線
-PANEL_BG = ("#f3f4f7", "#1f2127")     # 設定面板右邊的底
-BTN_SOFT_BG = ("#e8eefc", "#33405e")    # 次要按鈕：淡主色底、主色字（不用細框）
-BTN_SOFT_HOVER = ("#d8e3fb", "#3e4d70")
-BTN_SOFT_FG = ("#2a5fd0", "#9dbcff")
-KEYCAP_BG = ("#eef0f4", "#3a3e48")      # 快捷鍵表的鍵帽
-KEYCAP_HOVER = ("#e1e4eb", "#464b57")
+CARD_BG = ("#ffffff", "#2a2c33")   # 設定面板的卡片
+DIVIDER = ("#e8e5de", "#3a3d46")      # 卡片裡列與列之間的細線
+PANEL_BG = ("#f3f1ec", "#1c1d22")   # 設定面板右邊的底
+BTN_SOFT_BG = ("#e9ebfa", "#343a5e")   # 次要按鈕：淡靛藍底、靛藍字
+BTN_SOFT_HOVER = ("#dbdff7", "#3f4670")
+BTN_SOFT_FG = ("#4149c0", "#aab0ff")
+KEYCAP_BG = ("#efede8", "#3a3d46")   # 快捷鍵表的鍵帽
+KEYCAP_HOVER = ("#e3e0d9", "#464a55")
 
 PAD = 10
 RADIUS = 6                   # 圓角小一點：CTk 畫圓角是用反鋸齒的圓，半徑大四個角看起來糊糊的（Peter 反映）
@@ -92,7 +92,7 @@ def fmt_day(d, with_weekday: bool = True) -> str:
     return _("{0}（{1}）").format(s, _(WEEKDAY_ZH[d.weekday()])) if with_weekday else s
 
 
-LINK_COLOR = ("#1a5fd0", "#7fb0ff")
+LINK_COLOR = ("#3b49c9", "#9aa3ff")
 
 
 def center_over(dlg, parent, width: int = 0, height: int = 0) -> None:
