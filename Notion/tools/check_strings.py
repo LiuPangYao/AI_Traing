@@ -93,12 +93,18 @@ def read_csv() -> list[dict[str, str]]:
 
 
 def write_csv(rows: list[dict[str, str]]) -> None:
+    """內容沒變就不碰檔案：make_release 用 mtime 判斷 exe 有沒有過期，每跑一次檢查就改寫 csv 會害它誤判。"""
+    import io
     CSV.parent.mkdir(parents=True, exist_ok=True)
-    with CSV.open("w", encoding="utf-8-sig", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=COLS)
-        w.writeheader()
-        for r in rows:
-            w.writerow({c: (r.get(c) or "").replace("\n", "\\n") for c in COLS})
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=COLS, lineterminator="\r\n")
+    w.writeheader()
+    for r in rows:
+        w.writerow({c: (r.get(c) or "").replace("\n", "\\n") for c in COLS})
+    data = buf.getvalue().encode("utf-8-sig")
+    if CSV.is_file() and CSV.read_bytes() == data:
+        return
+    CSV.write_bytes(data)
 
 
 CJK = re.compile("[　-ヿ一-鿿！-～]")   # 中日文、全形標點（（）／… 英文版要換成半形，所以也算要翻）

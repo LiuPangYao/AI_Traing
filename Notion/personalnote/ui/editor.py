@@ -233,6 +233,12 @@ class Editor(ctk.CTkFrame):
         self.text.bind("<<Modified>>", self._on_modified)
         self.text.bind("<Control-MouseWheel>", self._on_ctrl_wheel)
         self.text.bind("<Control-Button-1>", self._on_ctrl_click)
+        # [[ 清單開著時：↑↓ 選、Enter／Tab 填入、Esc 關；沒開就回空字串讓後面的綁定照常跑。
+        # 一定要綁在 _on_return／_on_tab 之前，而且只綁這一次：開清單時臨時 bind、關清單時 unbind 會把同一個鍵的其他綁定一起清掉（Python 3.12 的 unbind）。
+        for seq, fn in (("<Down>", lambda _e: self._ac_move(1)), ("<Up>", lambda _e: self._ac_move(-1)),
+                        ("<Return>", lambda _e: self._ac_choose()), ("<Tab>", lambda _e: self._ac_choose()),
+                        ("<Escape>", lambda _e: self._ac_close())):
+            self.text.bind(seq, fn)
         self.text.bind("<Return>", self._on_return)
         self.text.bind("<Tab>", lambda _e: self._on_tab(False))              # 清單行：縮排子項
         for seq in ("<Shift-Tab>", "<ISO_Left_Tab>"):                       # Windows／X11 的 Shift+Tab 名字不同
@@ -243,7 +249,7 @@ class Editor(ctk.CTkFrame):
         self.text.bind("<FocusIn>", lambda _e: self._sync_ime_font(), add="+")   # 輸入法選字的字跟內文一樣大
         self.title.bind("<FocusIn>", lambda _e: self._sync_ime_font(), add="+")
         self.text.bind("<FocusOut>", lambda _e: self.flush())   # 切到別的視窗就先存，關機也少丟字
-        self.text.bind("<FocusOut>", lambda _e: self.after(120, self._ac_close_if_unfocused), add="+")   # 點清單時先別關
+        self.text.bind("<FocusOut>", lambda _e: self.after(120, self._ac_close_if_unfocused, self._ac), add="+")   # 點清單時先別關
         self.text.bind("<KeyRelease>", self._maybe_autocomplete, add="+")   # 打 [[ 跳出標題清單（Peter：不然不知道要打什麼）
         self.text.bind("<Button-1>", lambda _e: self._ac_close(), add="+")
         self.text.bind("<Control-v>", self._on_paste)            # 剪貼簿是圖就存成附件並顯示
@@ -437,11 +443,7 @@ class Editor(ctk.CTkFrame):
                     self._ac_choose()
                 return "break"                   # 不讓焦點跑到清單
             lb.bind("<Button-1>", on_press)
-            binds = [(seq, tk_text.bind(seq, fn)) for seq, fn in (
-                ("<Down>", lambda _e: self._ac_move(1)), ("<Up>", lambda _e: self._ac_move(-1)),
-                ("<Return>", lambda _e: self._ac_choose()), ("<Tab>", lambda _e: self._ac_choose()),
-                ("<Escape>", lambda _e: self._ac_close()))]
-            self._ac = {"win": win, "list": lb, "binds": binds}
+            self._ac = {"win": win, "list": lb}
         ac = self._ac
         ac["items"], ac["start"] = titles, start
         lb = ac["list"]
@@ -482,16 +484,17 @@ class Editor(ctk.CTkFrame):
         self._mark_dirty()
         return "break"
 
-    def _ac_close_if_unfocused(self) -> None:
-        """內文框失焦 0.12 秒後：焦點不在清單上才關（點清單本身不算離開）。"""
+    def _ac_close_if_unfocused(self, which=None) -> None:
+        """內文框失焦 0.12 秒後：焦點不在清單上才關（點清單本身不算離開）。
+        只關失焦當時開著的那個清單（which）；0.12 秒內換成新清單就不動它，不然新清單會被舊計時器關掉。"""
         ac = self._ac
-        if ac is None:
+        if ac is None or (which is not None and ac is not which):
             return
         try:
             f = self.focus_get()
         except Exception:
             f = None
-        if f is not ac["list"]:
+        if f is not ac["list"] and f is not self.text._textbox:   # 清單本身跳出來時焦點會閃一下再回內文框，那不算離開
             self._ac_close()
 
     def _ac_close(self) -> str:
@@ -499,12 +502,6 @@ class Editor(ctk.CTkFrame):
         if ac is None:
             return ""
         self._ac = None
-        tk_text = self.text._textbox
-        for seq, fid in ac["binds"]:
-            try:
-                tk_text.unbind(seq, fid)
-            except Exception:
-                pass
         try:
             ac["win"].destroy()
         except Exception:
