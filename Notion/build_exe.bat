@@ -12,7 +12,7 @@ if not exist "%PY%" set PY=python
 rem 啟動畫面上印著版號，每次打包重畫，才不會跟設定裡的版號對不上
 "%PY%" -X utf8 tools\make_splash.py || (echo 啟動畫面產生失敗 & pause & exit /b 1)
 "%PY%" -m PyInstaller --noconfirm --clean --onefile --windowed ^
-  --name Notion --icon assets\icon.ico --version-file build\version_info.txt ^
+  --name Notion --icon assets\icon.ico --version-file build\version_info.txt --noupx ^
   --add-data "assets;assets" --collect-data customtkinter --splash assets\splash.png ^
   run.py
 if errorlevel 1 (echo 打包失敗 & pause & exit /b 1)

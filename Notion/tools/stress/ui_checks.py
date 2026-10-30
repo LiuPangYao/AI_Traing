@@ -251,7 +251,7 @@ check(win.keymap.overrides() == {} and _json.loads(win.settings.settings_path.re
 import urllib.error as _ue
 from personalnote.state import AppState
 fake = lambda: {"tag_name": "v9.9.9", "html_url": "https://github.com/x/releases/tag/v9.9.9",
-                "assets": [{"name": "Notion_v9.9.9.zip", "browser_download_url": "https://github.com/x/Notion_v9.9.9.zip"}]}
+                "assets": [{"name": "Notion_v9.9.9.zip", "browser_download_url": "https://github.com/LiuPangYao/AI_Traing/releases/download/v9.9.9/Notion_v9.9.9.zip"}]}
 def wait_update():
     for _ in range(60):
         win.update(); time.sleep(0.05)
@@ -268,7 +268,7 @@ win._update_prompt = None
 win.start_update_check(force=True, fetch=fake, notify=True); wait_update()
 check(getattr(win, "_update_prompt", None) is None, "同一版不再跳提醒")
 win.open_settings(); win.update(); pnl = win._settings_panel
-pnl.tabs.set(pnl._tab_titles["更新"]); win.update(); win.update()
+pnl.show_page("更新"); win.update(); win.update()
 check("9.9.9" in pnl._update_lbl.cget("text") and pnl._update_btn.winfo_ismapped(), "設定裡顯示有新版、下載鈕出現")
 opened.clear(); pnl._update_btn.invoke(); win.update()
 check(bool(opened) and opened[-1].endswith("Notion_v9.9.9.zip"), "下載鈕開 zip 網址")
@@ -287,6 +287,33 @@ for _ in range(10):
         break
     tour._next(); win.update()
 check(not tour.winfo_exists() and win.state_.tour_done and AppState.load(win.store.root).tour_done, "按到最後一頁關閉，記住看過了")
+# 使用時間：有焦點＋有在動才累加；月曆：格子、換月、點日期；版本紀錄展開／收起
+from personalnote import usage as usagelog
+now = time.monotonic()
+win._last_activity = now; win._last_tick = now - 2
+u0 = win.usage.seconds(today)
+win._tick_usage(now, focused=True)
+check(win.usage.seconds(today) == u0 + 2, "有焦點、有在動：加 2 秒")
+win._last_tick = now - 2; win._tick_usage(now, focused=False)
+check(win.usage.seconds(today) == u0 + 2, "沒焦點：不加")
+win._last_activity = now - usagelog.IDLE_SECONDS - 1; win._last_tick = now - 2; win._tick_usage(now, focused=True)
+check(win.usage.seconds(today) == u0 + 2, "太久沒動：不加")
+check(win.usage.save(now + 100, force=True) and usagelog.UsageLog(win.store.root).seconds(today) == u0 + 2, "使用時間有寫進 usage.json")
+win.show_calendar(); win.update(); cal_dlg = win._calendar; cs = cal_dlg._cal_state
+check(today in cs["cells"] and cs["y"] == today.year and cs["m"] == today.month, "月曆開在本月、有今天的格子")
+cal_dlg._cal_shift(-1); win.update()
+check((cs["y"], cs["m"]) == ((today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)), "◀ 換到上個月")
+cal_dlg._cal_shift(1); win.update()
+win.go_day(yd); win.update()
+cs["cells"][today].event_generate("<Button-1>"); win.update()
+check(win.current_day == today, "點月曆的日期跳到那天")
+cal_dlg.destroy(); win.update()
+win.open_settings(); win.update(); pnl = win._settings_panel; pnl.show_page("更新"); win.update()
+pnl._toggle_log(); win.update()
+check(pnl._log_box is not None and pnl._log_box.winfo_exists() and len(pnl._log_box.winfo_children()) > 10, "版本紀錄展開，列出各版")
+pnl._toggle_log(); win.update()
+check(pnl._log_box is None, "版本紀錄收起")
+pnl.destroy(); win.update()
 win.destroy()
 shutil.rmtree(tmp, ignore_errors=True)
 print("UI:", "PASS" if not errors else f"FAIL ({len(errors)})")

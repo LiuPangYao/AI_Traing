@@ -1,4 +1,4 @@
-<!-- version: 1.0.5 -->
+<!-- version: 1.0.6 -->
 [繁體中文](README.md) | **English** | [日本語](README.ja.md) | [ไทย](README.th.md) | [हिन्दी](README.hi.md)
 
 # Notion
@@ -13,6 +13,8 @@ Written in Python 3.12 (UI: tkinter + customtkinter; packaged with PyInstaller).
 | Traditional Chinese UI (light) | Settings (tabs) |
 |---|---|
 | ![Main window (zh-TW)](docs/main-zh.png) | ![Settings](docs/settings-en.png) |
+
+![Calendar: which days have notes and daily usage time](docs/calendar-zh.png)
 
 The side panel lists notes by day; the ☆ before a title marks a favorite. The middle is the title and text: `==highlight==`, `!!red!!`, `**bold**` are coloured as you type, ``` blocks get a Copy button, and screenshots show inline. Language, shortcuts, side-panel position and updates are all under ⚙ Settings at the top right.
 
@@ -40,6 +42,7 @@ The side panel lists notes by day; the ☆ before a title marks a favorite. The 
 | Share | Right-click a note → Share: send by email (opens your mail app, subject = title, body = plain text) or copy to the Google Drive desktop sync folder (you pick a folder if it is not found) |
 | Languages | English (default), Traditional Chinese, Simplified Chinese, Japanese; switch under Settings → Appearance without restarting; the translation table is one csv, add a column to add a language |
 | Updates | A few seconds after start, the app checks GitHub Releases for a newer version (reads the version number only). If there is one it reminds you: download the zip, skip this version, or turn reminders off (Settings → Update). Updating = close the app and replace `Notion.exe`; notes and settings are untouched |
+| Calendar and usage time | Toolbar “Calendar” or Ctrl+M: which days this month have notes and how long you used the app each day (heat map); click a day to jump there; time counts only while the window is focused and active, stored in `.app/usage.json`; Settings → Update → Version history lists what changed in every version |
 | Quick tour | A five-page tour on first launch, shown once; Settings → Update shows it again |
 | Appearance | Light / system / dark; Ctrl+wheel zoom; side panel on the left, right or bottom, width draggable; collapsible format bar; empty-note hint; "Saved" fades out; dialogs open centred on the main window |
 | Other | Single instance; splash screen; progress for long actions; line and character counts; the "today" marker moves on its own after midnight |

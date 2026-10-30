@@ -17,6 +17,14 @@ DAY_HEADER = ("#374151", "#c7cbd1")
 DAY_ACTIVE_BG = ("#e4e8f0", "#272a32")   # 左欄：選中那張所在的那一天整組的底色（比左欄深一階就好，選中那張另外有色帶）
 ROW_SELECTED_BG = ("#d6e2fb", "#2b3a5c") # 左欄：選中那張的淡底（左邊再加一條主色色帶，不整條塗藍）
 DANGER = ("#d9534f", "#e06c66")
+CARD_BG = ("#ffffff", "#2b2f38")      # 設定面板的卡片（比視窗底色亮一階）
+DIVIDER = ("#e6e9ef", "#3a3e48")      # 卡片裡列與列之間的細線
+PANEL_BG = ("#f3f4f7", "#1f2127")     # 設定面板右邊的底
+BTN_SOFT_BG = ("#e8eefc", "#33405e")    # 次要按鈕：淡主色底、主色字（不用細框）
+BTN_SOFT_HOVER = ("#d8e3fb", "#3e4d70")
+BTN_SOFT_FG = ("#2a5fd0", "#9dbcff")
+KEYCAP_BG = ("#eef0f4", "#3a3e48")      # 快捷鍵表的鍵帽
+KEYCAP_HOVER = ("#e1e4eb", "#464b57")
 
 PAD = 10
 RADIUS = 6                   # 圓角小一點：CTk 畫圓角是用反鋸齒的圓，半徑大四個角看起來糊糊的（Peter 反映）

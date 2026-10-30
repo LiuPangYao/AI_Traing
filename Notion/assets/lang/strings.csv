@@ -309,3 +309,16 @@ Ctrl+F 搜尋日期或內容,Ctrl+F searches dates and text,Ctrl+F 搜索日期�
 語言、字體、左欄放哪邊、快捷鍵（可以自己改）,"Language, font, side-panel position, shortcuts (you can change them)",语言、字体、左栏放哪边、快捷键（可以自己改）,言語、フォント、サイドパネルの位置、ショートカット（変更可）,TourDialog.PAGES
 更新：有新版會提醒，可以關掉,Update: you are reminded when a new version is out; can be turned off,更新：有新版会提醒，可以关掉,更新：新しいバージョンがあれば通知します（オフにできます）,TourDialog.PAGES
 這個教學在 設定 → 更新 可以再看一次,You can see this tour again under Settings → Update,这个教程在 设置 → 更新 可以再看一次,このガイドは 設定 → 更新 からもう一度見られます,TourDialog.PAGES
+把 Notion.bat 的捷徑放進 Windows 的「啟動」資料夾就會開機自動開（上面的按鈕會開那個資料夾）。,Put a shortcut to Notion.bat in the Windows “Startup” folder and it opens with Windows (the button above opens that folder).,把 Notion.bat 的快捷方式放进 Windows 的“启动”文件夹就会开机自动开（上面的按钮会打开那个文件夹）。,Notion.bat のショートカットを Windows の「スタートアップ」フォルダーに入れると起動時に開きます（上のボタンでそのフォルダーが開きます）。,personalnote\ui\main_window.py:1292
+月曆,Calendar,月历,カレンダー,personalnote\ui\calendar.py:31
+{0} 張,{0} notes,{0} 张,{0} 枚,personalnote\ui\calendar.py:90
+這個月：{0} 天有筆記、{1} 張；用了 {2},"This month: notes on {0} days, {1} notes; used {2}",这个月：{0} 天有笔记、{1} 张；用了 {2},今月：{0} 日にメモあり、{1} 枚。使用 {2},personalnote\ui\calendar.py:99
+平均每個有用的日子 {0},average {0} per active day,平均每个有用的日子 {0},使った日の平均 {0},personalnote\ui\calendar.py:101
+不到 1 分,under 1 min,不到 1 分,1 分未満,personalnote\usage.py:27
+{0} 小時 {1} 分,{0} h {1} min,{0} 小时 {1} 分,{0} 時間 {1} 分,personalnote\usage.py:29
+{0} 分,{0} min,{0} 分,{0} 分,personalnote\usage.py:29
+月曆：哪幾天有筆記、每天用多久,Calendar: which days have notes and how long you used the app,月历：哪几天有笔记、每天用多久,カレンダー：メモのある日と毎日の使用時間,personalnote\ui\main_window.py:191
+版本紀錄,Version history,版本记录,バージョン履歴,personalnote\ui\main_window.py:1403
+每一版改了什麼（1.0.0 → {0}）,What changed in each version (1.0.0 → {0}),每一版改了什么（1.0.0 → {0}）,各バージョンの変更点（1.0.0 → {0}）,personalnote\ui\main_window.py:1406
+還沒查（啟動時關掉了，或還沒到時間）；按「重新檢查」才會連網,"Not checked yet (turned off at startup, or not yet due); “Check again” is the only thing that connects",还没查（启动时关掉了，或还没到时间）；按“重新检查”才会联网,まだ確認していません（起動時の確認がオフか、まだ時間前）。「再確認」を押したときだけ接続します,personalnote\ui\main_window.py:1467
+月曆（哪幾天有筆記、每天用多久）,"Calendar (which days have notes, daily usage time)",月历（哪几天有笔记、每天用多久）,カレンダー（メモのある日、毎日の使用時間）,keys.ACTIONS

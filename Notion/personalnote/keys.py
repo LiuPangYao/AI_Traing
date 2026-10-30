@@ -28,6 +28,7 @@ ACTIONS: tuple[tuple[str, str, str], ...] = (
     ("code", "Ctrl+Shift+C", "插一段 ``` 指令區塊（右上角可一鍵複製）"),
     ("prev_day", "Ctrl+PgUp", "前一天"),
     ("next_day", "Ctrl+PgDn", "後一天"),
+    ("calendar", "Ctrl+M", "月曆（哪幾天有筆記、每天用多久）"),
     ("zoom_in", "Ctrl+=", "字體放大（Ctrl+滾輪也可）"),
     ("zoom_out", "Ctrl+-", "字體縮小"),
 )

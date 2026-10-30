@@ -17,6 +17,7 @@ from typing import Callable, Optional
 
 REPO = "LiuPangYao/AI_Traing"
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
+_ENV_URL = "NOTE_UPDATE_URL"      # 測試用：指到自己的伺服器（tools/stress/update_check.py 用它做端對端驗證）
 PAGE_URL = f"https://github.com/{REPO}/releases/latest"
 TIMEOUT = 6
 
@@ -55,10 +56,26 @@ def parse_release(data: dict, current: str) -> Optional[Info]:
     return Info(version=version, url=url, newer=is_newer(version, current))
 
 
+ALLOWED_PREFIXES = (f"https://github.com/{REPO}/", "https://api.github.com/")
+
+
+def safe_url(url: str) -> str:
+    """下載／開頁只認 GitHub 上這個 repo 的網址（JSON 被改也開不到別處）；測試用的本機網址（NOTE_UPDATE_URL 指到 127.0.0.1）放行。"""
+    import os
+    u = str(url or "")
+    if u.startswith(ALLOWED_PREFIXES):
+        return u
+    if os.environ.get(_ENV_URL, "").startswith("http://127.0.0.1") and u.startswith("http://127.0.0.1"):
+        return u
+    return PAGE_URL
+
+
 def fetch(timeout: int = TIMEOUT) -> dict:
     """連 GitHub 拿 latest release 的 JSON。失敗丟例外（check 會接）。"""
     from . import __version__, APP_NAME
-    req = urllib.request.Request(API_URL, headers={"Accept": "application/vnd.github+json",
+    import os
+    url = os.environ.get(_ENV_URL, "").strip() or API_URL
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json",
                                                    "User-Agent": f"{APP_NAME}/{__version__}"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))

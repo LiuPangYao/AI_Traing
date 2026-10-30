@@ -52,3 +52,36 @@ class ReleaseTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class EnvUrlTest(unittest.TestCase):
+    def test_env_url_points_fetch_at_local_server(self):
+        import http.server, json, os, socketserver, threading
+        payload = json.dumps({"tag_name": "v99.0.0", "assets": []}).encode()
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(payload)
+            def log_message(self, *a):
+                pass
+        with socketserver.TCPServer(("127.0.0.1", 0), H) as srv:
+            port = srv.server_address[1]
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            os.environ["NOTE_UPDATE_URL"] = f"http://127.0.0.1:{port}/latest.json"
+            try:
+                status, info = update.check("1.0.6")
+            finally:
+                os.environ.pop("NOTE_UPDATE_URL", None)
+                srv.shutdown()
+        self.assertEqual(status, "ok")
+        self.assertEqual((info.version, info.newer), ("99.0.0", True))
+
+
+class SafeUrlTest(unittest.TestCase):
+    def test_only_github_urls_are_opened(self):
+        good = f"https://github.com/{update.REPO}/releases/download/v1/x.zip"
+        self.assertEqual(update.safe_url(good), good)
+        self.assertEqual(update.safe_url("https://evil.example/x.zip"), update.PAGE_URL)
+        self.assertEqual(update.safe_url("file:///C:/x.exe"), update.PAGE_URL)
+        self.assertEqual(update.safe_url(""), update.PAGE_URL)
