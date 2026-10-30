@@ -347,6 +347,17 @@ win.editor._on_tab(True); win.update()
 check(t.get("2.0", "2.end") == "- [ ] 連結測試", "Shift+Tab 退回")
 t.mark_set("insert", "1.0")
 check(win.editor._on_tab(False) is None, "不是清單行：Tab 照預設")
+# [[ 自動完成：打 [[想 → 清單有「想法」→ Enter 填成 [[想法]]
+win.open_note(nid_a); win.update()
+t.mark_set("insert", "1.end"); t.insert("insert", "\n再連 [[想"); win.editor._maybe_autocomplete(); win.update()
+check(win.editor._ac is not None and any("想法" in it for it in win.editor._ac["items"]), "打 [[ 跳出標題清單（含「想法」）")
+idx = next(i for i, it in enumerate(win.editor._ac["items"]) if it == "想法")
+win.editor._ac["list"].selection_clear(0, "end"); win.editor._ac["list"].selection_set(idx)
+win.editor._ac_choose(); win.update()
+check(t.get("2.0", "2.end") == "再連 [[想法]]" and win.editor._ac is None, "Enter 填入 [[想法]] 並關掉清單")
+t.insert("insert", " 以及 [["); win.editor._maybe_autocomplete(); win.update()
+check(win.editor._ac is not None and len(win.editor._ac["items"]) >= 2, "只打 [[ 列出所有標題")
+win.editor._ac_close(); win.update()
 from personalnote.ui import datepick as _dp
 from tkinter import filedialog
 picks = iter([yd, today]); _dp.ask_date = lambda *a, **k: next(picks)

@@ -134,7 +134,8 @@ class MainWindow(ctk.CTk):
                              on_paste_image=self.paste_image,
                              format_bar=self.state_.format_bar,
                              on_format_toggle=self._on_format_toggle,
-                             on_tag=self.search_tag)
+                             on_tag=self.search_tag,
+                             on_titles=lambda: self.store.all_titles())
         self.editor.grid(row=2, column=0, sticky="nsew")
 
     def rebuild_ui(self) -> None:

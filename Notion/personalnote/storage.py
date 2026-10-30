@@ -598,6 +598,22 @@ class NoteStore:
         dest_file.parent.mkdir(parents=True, exist_ok=True)
         dest_file.write_text(text, encoding="utf-8", newline="\n")
 
+    def all_titles(self, limit: int = 500) -> list[str]:
+        """[[ 自動完成用：所有筆記的標題，新的日期在前、去重、略過空的與「（解不開）」這種。"""
+        seen: set[str] = set()
+        out: list[str] = []
+        for d in self.list_days():
+            if d >= TODO_DAY - timedelta(days=1):
+                continue
+            for r in self.list_notes(d):
+                t = r.title.strip()
+                if not t or t.startswith("（") or t in seen:
+                    continue
+                seen.add(t); out.append(t)
+                if len(out) >= limit:
+                    return out
+        return out
+
     def find_note(self, ref: str) -> Optional[NoteId]:
         """[[…]] 連結的目標：「2026-10-29/003」或「2026-10-29-003」是編號；其餘當標題找（不分大小寫，新的日期優先）。"""
         s = str(ref).strip()

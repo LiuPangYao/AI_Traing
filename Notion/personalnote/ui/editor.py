@@ -136,7 +136,8 @@ class Editor(ctk.CTkFrame):
                  on_paste_image: Optional[Callable[[object], Optional[str]]] = None,
                  format_bar: bool = False,
                  on_format_toggle: Optional[Callable[[bool], None]] = None,
-                 on_tag: Optional[Callable[[str], None]] = None):
+                 on_tag: Optional[Callable[[str], None]] = None,
+                 on_titles: Optional[Callable[[], list[str]]] = None):
         """resolve_link：連結字串 → 絕對路徑（主視窗給 store.resolve）；沒有就不顯示圖。
         on_paste_image(PIL 影像) → 要插進筆記的那行文字（主視窗負責存成附件）；None = 不處理貼圖。
         format_bar：格式列一開始展開嗎（預設收起，Peter：不常改）；on_format_toggle(展開了嗎) 讓主視窗記到 state.json。"""
@@ -149,6 +150,8 @@ class Editor(ctk.CTkFrame):
         self._resolve_link = resolve_link
         self._on_paste_image = on_paste_image
         self._on_tag = on_tag                   # Ctrl+點 #標籤 → on_tag("#標籤")（主視窗拿去搜尋）
+        self._on_titles = on_titles             # [[ 自動完成：回所有筆記標題（主視窗給）
+        self._ac: Optional[dict] = None         # 自動完成的小視窗狀態（_maybe_autocomplete）
         self._photos: list = []                 # 畫在筆記裡的圖（要留著參考，不然 tk 會把圖收掉）
         self._images_state: list = []           # 目前畫了哪些 (行, 路徑, 檔案mtime)；沒變就不重畫
         self._dirty = False
@@ -240,6 +243,9 @@ class Editor(ctk.CTkFrame):
         self.text.bind("<FocusIn>", lambda _e: self._sync_ime_font(), add="+")   # 輸入法選字的字跟內文一樣大
         self.title.bind("<FocusIn>", lambda _e: self._sync_ime_font(), add="+")
         self.text.bind("<FocusOut>", lambda _e: self.flush())   # 切到別的視窗就先存，關機也少丟字
+        self.text.bind("<FocusOut>", lambda _e: self._ac_close(), add="+")
+        self.text.bind("<KeyRelease>", self._maybe_autocomplete, add="+")   # 打 [[ 跳出標題清單（Peter：不然不知道要打什麼）
+        self.text.bind("<Button-1>", lambda _e: self._ac_close(), add="+")
         self.text.bind("<Control-v>", self._on_paste)            # 剪貼簿是圖就存成附件並顯示
         self.text.bind("<Button-1>", self._on_click)             # 點圖 → 出現縮放把手
         self.text.bind("<KeyPress>", lambda _e: (self._hide_handle(), self._hint.place_forget()), add="+")
@@ -348,6 +354,106 @@ class Editor(ctk.CTkFrame):
                 platform_.set_ime_font(widget, f.actual("family"), px)
             except Exception:
                 pass
+
+    # ---- [[ 自動完成 ----
+    AC_MAX = 8
+
+    def _maybe_autocomplete(self, e=None) -> None:
+        """每次放開鍵：游標前這一行若有還沒關上的 [[，就列出符合的標題；沒有就關掉清單。"""
+        if self._on_titles is None or self.read_only:
+            return
+        if e is not None and e.keysym in ("Up", "Down", "Return", "Tab", "Escape", "Shift_L", "Shift_R", "Control_L", "Control_R"):
+            return
+        tk_text = self.text._textbox
+        line_no = int(tk_text.index("insert").split(".")[0])
+        before = tk_text.get(f"{line_no}.0", "insert")
+        m = re.search(r"\[\[([^\[\]\n]*)$", before)
+        if not m:
+            self._ac_close()
+            return
+        query = m.group(1).strip().lower()
+        titles = [t for t in self._on_titles() if query in t.lower()][: self.AC_MAX]
+        if not titles:
+            self._ac_close()
+            return
+        start = f"{line_no}.{_py_to_tk_col(before, m.start(1))}"    # 查詢字（[[ 之後）的起點
+        self._ac_show(titles, start)
+
+    def _ac_show(self, titles: list[str], start: str) -> None:
+        tk_text = self.text._textbox
+        if self._ac is None:
+            win = tk.Toplevel(self)
+            win.overrideredirect(True)
+            win.attributes("-topmost", True)
+            dark = self._dark()
+            bg = T.CARD_BG[1] if dark else T.CARD_BG[0]
+            fg = T.TEXT[1] if dark else T.TEXT[0]
+            lb = tk.Listbox(win, font=(T.UI_FONT_FAMILY, 11), bg=bg, fg=fg, bd=0, highlightthickness=1,
+                            highlightbackground=T.DIVIDER[1] if dark else T.DIVIDER[0], activestyle="none",
+                            selectbackground=T.ACCENT[1] if dark else T.ACCENT[0], selectforeground=T.ON_ACCENT, width=36)
+            lb.pack()
+            lb.bind("<ButtonRelease-1>", lambda _e: self._ac_choose())
+            binds = [(seq, tk_text.bind(seq, fn)) for seq, fn in (
+                ("<Down>", lambda _e: self._ac_move(1)), ("<Up>", lambda _e: self._ac_move(-1)),
+                ("<Return>", lambda _e: self._ac_choose()), ("<Tab>", lambda _e: self._ac_choose()),
+                ("<Escape>", lambda _e: self._ac_close()))]
+            self._ac = {"win": win, "list": lb, "binds": binds}
+        ac = self._ac
+        ac["items"], ac["start"] = titles, start
+        lb = ac["list"]
+        lb.delete(0, "end")
+        for t in titles:
+            lb.insert("end", "  " + t)
+        lb.configure(height=len(titles))
+        lb.selection_clear(0, "end"); lb.selection_set(0); lb.activate(0)
+        bbox = tk_text.bbox("insert")
+        x = tk_text.winfo_rootx() + (bbox[0] if bbox else 0)
+        y = tk_text.winfo_rooty() + ((bbox[1] + bbox[3]) if bbox else 20) + 2
+        ac["win"].geometry(f"+{x}+{y}")
+        ac["win"].deiconify(); ac["win"].lift()
+
+    def _ac_move(self, d: int) -> str:
+        ac = self._ac
+        if ac is None:
+            return ""
+        lb = ac["list"]
+        cur = lb.curselection()
+        i = (cur[0] if cur else 0) + d
+        i = max(0, min(lb.size() - 1, i))
+        lb.selection_clear(0, "end"); lb.selection_set(i); lb.activate(i); lb.see(i)
+        return "break"
+
+    def _ac_choose(self) -> str:
+        """把選到的標題填進去：[[查詢字 → [[標題]]。"""
+        ac = self._ac
+        if ac is None:
+            return ""
+        lb = ac["list"]
+        cur = lb.curselection()
+        title = ac["items"][cur[0] if cur else 0]
+        tk_text = self.text._textbox
+        tk_text.delete(ac["start"], "insert")
+        tk_text.insert(ac["start"], title + "]]")
+        self._ac_close()
+        self._mark_dirty()
+        return "break"
+
+    def _ac_close(self) -> str:
+        ac = self._ac
+        if ac is None:
+            return ""
+        self._ac = None
+        tk_text = self.text._textbox
+        for seq, fid in ac["binds"]:
+            try:
+                tk_text.unbind(seq, fid)
+            except Exception:
+                pass
+        try:
+            ac["win"].destroy()
+        except Exception:
+            pass
+        return "break"
 
     def _on_tab(self, out: bool) -> Optional[str]:
         """清單行（1.／-／- [ ]）按 Tab 縮排兩格、Shift+Tab 退回；不是清單行就照 tk 預設。"""

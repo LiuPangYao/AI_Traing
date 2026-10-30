@@ -355,3 +355,4 @@ Ctrl+F 搜尋日期或內容,Ctrl+F searches dates and text,Ctrl+F 搜索日期�
 用範本開一張（會議紀錄、週報…；範本在 .app/templates，可自己加）,"New note from a template (meeting notes, weekly report…; templates live in .app/templates, add your own)",用模板开一张（会议纪要、周报…；模板在 .app/templates，可自己加）,テンプレートから新しいノート（会議メモ、週報…。テンプレートは .app/templates にあり追加可）,keys.GESTURES
 範本 ▾,Template ▾,模板 ▾,テンプレート ▾,personalnote\ui\main_window.py:198
 用範本開一張新筆記（會議紀錄、週報…）,"New note from a template (meeting notes, weekly report…)",用模板开一张新笔记（会议纪要、周报…）,テンプレートから新しいノート（会議メモ、週報…）,personalnote\ui\main_window.py:199
+連到另一張筆記：打 [[ 會列出標題讓你選（↑↓ 選、Enter 填入）；Ctrl+點跳過去，「返回」回來,"Link to another note: typing [[ lists titles to pick from (↑↓ to choose, Enter to insert); Ctrl+click to jump, “Back” to return",链接到另一张笔记：打 [[ 会列出标题让你选（↑↓ 选、Enter 填入）；Ctrl+点跳过去，“返回”回来,別のノートへのリンク：[[ と打つとタイトル一覧から選べます（↑↓ で選択、Enter で入力）。Ctrl+クリックで移動、「戻る」で戻る,keys.GESTURES
