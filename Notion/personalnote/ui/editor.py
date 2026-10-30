@@ -243,7 +243,7 @@ class Editor(ctk.CTkFrame):
         self.text.bind("<FocusIn>", lambda _e: self._sync_ime_font(), add="+")   # 輸入法選字的字跟內文一樣大
         self.title.bind("<FocusIn>", lambda _e: self._sync_ime_font(), add="+")
         self.text.bind("<FocusOut>", lambda _e: self.flush())   # 切到別的視窗就先存，關機也少丟字
-        self.text.bind("<FocusOut>", lambda _e: self._ac_close(), add="+")
+        self.text.bind("<FocusOut>", lambda _e: self.after(120, self._ac_close_if_unfocused), add="+")   # 點清單時先別關
         self.text.bind("<KeyRelease>", self._maybe_autocomplete, add="+")   # 打 [[ 跳出標題清單（Peter：不然不知道要打什麼）
         self.text.bind("<Button-1>", lambda _e: self._ac_close(), add="+")
         self.text.bind("<Control-v>", self._on_paste)            # 剪貼簿是圖就存成附件並顯示
@@ -392,7 +392,14 @@ class Editor(ctk.CTkFrame):
                             highlightbackground=T.DIVIDER[1] if dark else T.DIVIDER[0], activestyle="none",
                             selectbackground=T.ACCENT[1] if dark else T.ACCENT[0], selectforeground=T.ON_ACCENT, width=36)
             lb.pack()
-            lb.bind("<ButtonRelease-1>", lambda _e: self._ac_choose())
+
+            def on_press(e):                     # 按下就填（ButtonRelease 時內文框已失焦、清單早被關掉：Peter 回報點了沒反應）
+                i = lb.nearest(e.y)
+                if i >= 0:
+                    lb.selection_clear(0, "end"); lb.selection_set(i); lb.activate(i)
+                    self._ac_choose()
+                return "break"                   # 不讓焦點跑到清單
+            lb.bind("<Button-1>", on_press)
             binds = [(seq, tk_text.bind(seq, fn)) for seq, fn in (
                 ("<Down>", lambda _e: self._ac_move(1)), ("<Up>", lambda _e: self._ac_move(-1)),
                 ("<Return>", lambda _e: self._ac_choose()), ("<Tab>", lambda _e: self._ac_choose()),
@@ -437,6 +444,18 @@ class Editor(ctk.CTkFrame):
         self._ac_close()
         self._mark_dirty()
         return "break"
+
+    def _ac_close_if_unfocused(self) -> None:
+        """內文框失焦 0.12 秒後：焦點不在清單上才關（點清單本身不算離開）。"""
+        ac = self._ac
+        if ac is None:
+            return
+        try:
+            f = self.focus_get()
+        except Exception:
+            f = None
+        if f is not ac["list"]:
+            self._ac_close()
 
     def _ac_close(self) -> str:
         ac = self._ac

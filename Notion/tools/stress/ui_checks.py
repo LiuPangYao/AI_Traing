@@ -357,7 +357,11 @@ win.editor._ac_choose(); win.update()
 check(t.get("2.0", "2.end") == "再連 [[想法]]" and win.editor._ac is None, "Enter 填入 [[想法]] 並關掉清單")
 t.insert("insert", " 以及 [["); win.editor._maybe_autocomplete(); win.update()
 check(win.editor._ac is not None and len(win.editor._ac["items"]) >= 2, "只打 [[ 列出所有標題")
-win.editor._ac_close(); win.update()
+# 用滑鼠點清單第一項（模擬按下）
+class _E: y = 2
+lb = win.editor._ac["list"]; first = win.editor._ac["items"][0]
+lb.event_generate("<Button-1>", x=5, y=2); win.update()
+check(win.editor._ac is None and t.get("2.0", "2.end").endswith("[[" + first + "]]"), "滑鼠點清單也會填入")
 from personalnote.ui import datepick as _dp
 from tkinter import filedialog
 picks = iter([yd, today]); _dp.ask_date = lambda *a, **k: next(picks)
