@@ -12,7 +12,7 @@
 - app.py      進入點：把上面幾層接起來
 """
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 APP_NAME = "Notion"          # 視窗、exe、.bat、捷徑都用這個名字（Peter 2026-10-29 從 PersonalNote 改的）；
                              # 套件名、%APPDATA%\PersonalNote、加密常數不跟著改，舊資料才讀得到；桌面筆記資料夾預設改叫 Notion（config.default_note_dir）
 AUTHOR = "Peter Liu"         # 設定面板最底下與 exe 的版本資訊顯示
