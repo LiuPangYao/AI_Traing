@@ -339,10 +339,18 @@ class Editor(ctk.CTkFrame):
         self._sync_ime_font()
 
     def _sync_ime_font(self) -> None:
-        """Windows 輸入法的組字視窗（注音選字）用跟內文／標題一樣的字型與大小。"""
+        """Windows 輸入法的組字視窗（注音選字）用跟內文／標題一樣的字型與大小。
+        大小從 Tk 元件「實際」在用的字型讀（CustomTkinter 已把縮放算進去），再換成像素：正數是 point（×每 point 的像素），負數本身就是像素。"""
+        import tkinter.font as tkfont
         from .. import platform_
-        platform_.set_ime_font(self.text._textbox, self._font.cget("family"), self._font.cget("size"))
-        platform_.set_ime_font(self.title._entry, self._title_font.cget("family"), self._title_font.cget("size"))
+        for widget in (self.text._textbox, self.title._entry):
+            try:
+                f = tkfont.Font(root=widget, font=widget.cget("font"))
+                size = f.actual("size")
+                px = -size if size < 0 else size * float(widget.winfo_fpixels("1p"))
+                platform_.set_ime_font(widget, f.actual("family"), px)
+            except Exception:
+                pass
 
     def _on_tab(self, out: bool) -> Optional[str]:
         """清單行（1.／-／- [ ]）按 Tab 縮排兩格、Shift+Tab 退回；不是清單行就照 tk 預設。"""
