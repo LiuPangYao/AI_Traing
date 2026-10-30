@@ -211,3 +211,40 @@ Ctrl+點 #標籤,Ctrl+click a #tag,Ctrl+点 #标签,Ctrl+クリック #タグ,Se
 還原會把現在的內容也留成一份舊版本，可以再還回來。,"Restoring also keeps the current content as an older version, so you can go back.",还原会把现在的内容也留成一份旧版本，可以再还回来。,戻す前に現在の内容も以前のバージョンとして残るので、再び戻せます。,personalnote\ui\versions.py:76
 還原這一版,Restore this version,还原这一版,このバージョンに戻す,personalnote\ui\versions.py:87
 開啟、複製到今天、匯出、舊版本（還原）、分享（郵件／Google Drive）、刪除、清整天,"Open, copy to today, export, older versions (restore), share (email / Google Drive), delete, clear the day",打开、复制到今天、导出、旧版本（还原）、分享（邮件／Google Drive）、删除、清整天,開く、今日にコピー、エクスポート、以前のバージョン（復元）、共有（メール／Google Drive）、削除、その日を消去,SettingsPanel.SHORTCUTS
+前一天,Previous day,前一天,前の日,personalnote\ui\main_window.py:159
+後一天,Next day,后一天,次の日,personalnote\ui\main_window.py:163
+今天加一張,Add a note for today,今天加一张,今日にノートを追加,personalnote\ui\main_window.py:176
+只收 .md／.txt 文字檔（{0} MB 以內）；這些沒收進來：\n,Only .md / .txt text files up to {0} MB are accepted; these were skipped:\n,只收 .md／.txt 文本文件（{0} MB 以内）；这些没收进来：\n,.md／.txt のテキストファイル（{0} MB 以内）だけ受け付けます。次のものは取り込みませんでした：\n,personalnote\ui\main_window.py:596
+沒收進來（超過 {0} MB 或讀不了）：{1}\n{2},Not imported (over {0} MB or unreadable): {1}\n{2},没收进来（超过 {0} MB 或读不了）：{1}\n{2},取り込めませんでした（{0} MB 超か読めません）：{1}\n{2},personalnote\ui\main_window.py:668
+筆記列（左欄）放哪邊,Note list (side panel) position,笔记列（左栏）放哪边,ノート一覧（サイドパネル）の位置,personalnote\ui\main_window.py:1012
+快捷鍵（點開可以看、可以改）,Shortcuts (click to view or change),快捷键（点开可以看、可以改）,ショートカット（クリックで表示・変更）,personalnote\ui\main_window.py:1110
+點左邊的鍵，再按你要的組合鍵（要帶 Ctrl 或 Alt；F1～F12 可以單獨用），Esc 取消。兩個功能不能用同一組。,"Click a key on the left, then press the combination you want (it must include Ctrl or Alt; F1–F12 may be used alone). Esc cancels. Two actions cannot share one key.",点左边的键，再按你要的组合键（要带 Ctrl 或 Alt；F1～F12 可以单独用），Esc 取消。两个功能不能用同一组。,左のキーをクリックしてから、使いたいキーの組み合わせを押してください（Ctrl か Alt を含めること。F1～F12 は単独でも可）。Esc で取り消し。2 つの機能に同じキーは使えません。,personalnote\ui\main_window.py:1126
+全部還原預設,Reset all to defaults,全部还原默认,すべて既定に戻す,personalnote\ui\main_window.py:1140
+請按組合鍵…,Press keys…,请按组合键…,キーを押してください…,personalnote\ui\main_window.py:1157
+等你按鍵（Esc 取消）,Waiting for a key (Esc to cancel),等你按键（Esc 取消）,キー入力を待っています（Esc で取り消し）,personalnote\ui\main_window.py:1158
+沒有改,Unchanged,没有改,変更なし,personalnote\ui\main_window.py:1180
+「{0}」已經被「{1}」用了，換一組,{0} is already used by “{1}”; pick another,“{0}”已经被“{1}”用了，换一组,{0} はすでに「{1}」に使われています。別のキーを選んでください,personalnote\ui\main_window.py:1190
+「{0}」改成 {1},“{0}” is now {1},“{0}”改成 {1},「{0}」を {1} に変更しました,personalnote\ui\main_window.py:1198
+全部回到預設,All reset to defaults,全部回到默认,すべて既定に戻しました,personalnote\ui\main_window.py:1206
+左邊,Left,左边,左,SettingsPanel._SIDE_KEYS
+右邊,Right,右边,右,SettingsPanel._SIDE_KEYS
+下面,Bottom,下面,下,SettingsPanel._SIDE_KEYS
+新筆記（加在今天）,New note (added to today),新笔记（加在今天）,新しいノート（今日に追加）,keys.ACTIONS
+選取的字標黃底 ==重點==,Highlight the selection ==like this==,选中的字标黄底 ==重点==,選択した文字を ==強調== にする,keys.ACTIONS
+選取的字變紅字 !!警告!!,Make the selection red !!like this!!,选中的字变红字 !!警告!!,選択した文字を !!赤字!! にする,keys.ACTIONS
+選取的字 **粗體**,Make the selection **bold**,选中的字 **粗体**,選択した文字を **太字** にする,keys.ACTIONS
+選取的字 *斜體*,Make the selection *italic*,选中的字 *斜体*,選択した文字を *斜体* にする,keys.ACTIONS
+字體放大（Ctrl+滾輪也可）,Larger font (Ctrl+wheel also works),字体放大（Ctrl+滚轮也可）,文字を大きく（Ctrl+ホイールでも可）,keys.ACTIONS
+字體縮小,Smaller font,字体缩小,文字を小さく,keys.ACTIONS
+Ctrl+滾輪,Ctrl+wheel,Ctrl+滚轮,Ctrl+ホイール,keys.GESTURES
+.md／.txt（1 MB 以內）匯成今天的筆記；其他檔不收，附件用 📎 或 Ctrl+V 貼圖,.md / .txt (up to 1 MB) become today's notes; other files are not accepted — use 📎 or Ctrl+V for attachments,.md／.txt（1 MB 以内）导入成今天的笔记；其他文件不收，附件用 📎 或 Ctrl+V 贴图,.md／.txt（1 MB 以内）は今日のノートになります。他のファイルは受け付けません。添付は 📎 か Ctrl+V で,keys.GESTURES
+格式看不懂（例：Ctrl+Shift+N）,Cannot parse that (example: Ctrl+Shift+N),格式看不懂（例：Ctrl+Shift+N）,形式が読めません（例：Ctrl+Shift+N）,keys.MESSAGES
+要有一個主鍵,A main key is required,要有一个主键,主キーが必要です,keys.MESSAGES
+要帶 Ctrl 或 Alt（F1～F12 可以單獨用）,Must include Ctrl or Alt (F1–F12 may be used alone),要带 Ctrl 或 Alt（F1～F12 可以单独用）,Ctrl か Alt を含めてください（F1～F12 は単独でも可）,keys.MESSAGES
+這組是系統的複製／貼上／還原，不能拿來用,That is the system copy / paste / undo key; it cannot be used,这组是系统的复制／粘贴／还原，不能拿来用,これはシステムのコピー／貼り付け／元に戻すのキーなので使えません,keys.MESSAGES
+不支援這個鍵,That key is not supported,不支持这个键,このキーは使えません,keys.MESSAGES
+取消我的最愛,Remove from favorites,取消我的最爱,お気に入りから外す,personalnote\ui\main_window.py:383
+加入我的最愛,Add to favorites,加入我的最爱,お気に入りに追加,personalnote\ui\main_window.py:383
+我的最愛,Favorites,我的最爱,お気に入り,personalnote\ui\sidebar.py:338
+筆記列前的 ☆,☆ before a note,笔记列前的 ☆,ノートの前の ☆,keys.GESTURES
+點一下加入我的最愛，最上面會多一組「★ 我的最愛」；再點一次取消,Click to add the note to Favorites (a “★ Favorites” group appears at the top); click again to remove,点一下加入我的最爱，最上面会多一组“★ 我的最爱”；再点一次取消,クリックでお気に入りに追加（いちばん上に「★ お気に入り」が現れます）。もう一度クリックで解除,keys.GESTURES

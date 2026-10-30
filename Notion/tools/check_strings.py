@@ -49,9 +49,16 @@ def source_keys() -> dict[str, str]:
     from personalnote.ui.main_window import SettingsPanel
     for v in SettingsPanel._THEME_KEYS.values():
         keys.setdefault(v, "SettingsPanel._THEME_KEYS")
-    for key, what in SettingsPanel.SHORTCUTS:
-        keys.setdefault(key, "SettingsPanel.SHORTCUTS")
-        keys.setdefault(what, "SettingsPanel.SHORTCUTS")
+    for v in SettingsPanel._SIDE_KEYS.values():
+        keys.setdefault(v, "SettingsPanel._SIDE_KEYS")
+    from personalnote import keys as keys_mod
+    for _a, _k, desc in keys_mod.ACTIONS:
+        keys.setdefault(desc, "keys.ACTIONS")
+    for key, what in keys_mod.GESTURES:
+        keys.setdefault(key, "keys.GESTURES")
+        keys.setdefault(what, "keys.GESTURES")
+    for m in keys_mod.MESSAGES:
+        keys.setdefault(m, "keys.MESSAGES")
     return keys
 
 

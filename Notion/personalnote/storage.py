@@ -21,6 +21,7 @@
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -40,6 +41,11 @@ EXT_PLAIN, EXT_ENC = ".md", ".note"
 ATTACH_DIR = "attachments"
 TRASH_DIR = "trash"
 TITLE_MAX = 28
+IMPORT_MAX_BYTES = 1024 * 1024     # 匯入／拖進來的 .md／.txt 上限（1 MB 約 50 萬字；再大畫面會卡，也不是便利貼該放的）
+
+
+class TooBig(OSError):
+    """匯入的檔超過 IMPORT_MAX_BYTES。是 OSError 的一種，呼叫端照「讀不了」處理就好。"""
 EMPTY_TITLE = "（空白）"
 UNREADABLE_TITLE = "（解不開）"
 NEWER_TITLE = "（較新版本的格式）"
@@ -57,6 +63,7 @@ class NoteId:
 
 TODO_DAY = date(9999, 12, 31)   # 待辦事項：不屬於任何日期，只有一張（TODO_ID）。資料夾 9999-12-31，日期排序永遠在最上面
 TODO_ID = NoteId(TODO_DAY, 1)
+FAV_DAY = date(9999, 12, 30)    # 我的最愛：左欄的一組（不是資料夾、不是日期），排在待辦事項下面、所有日期上面
 
 
 @dataclass(frozen=True)
@@ -393,6 +400,51 @@ class NoteStore:
         finally:
             self._touch(nid.day)
 
+    # ---- 我的最愛（左欄星號）：.app/favorites.json 存 ["YYYY-MM-DD/NNN", …] ----
+    def _fav_path(self) -> Path:
+        return self.root / APP_SUBDIR / "favorites.json"
+
+    def favorites(self) -> list[NoteId]:
+        """有打星號、而且還存在的筆記（新的日期在前）。刪掉的筆記不另外清，這裡讀時濾掉。"""
+        p = self._fav_path()
+        if not p.is_file():
+            return []
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        out: list[NoteId] = []
+        for item in (data if isinstance(data, list) else []):
+            try:
+                d, seq = str(item).split("/")
+                nid = NoteId(date.fromisoformat(d), int(seq))
+            except (ValueError, TypeError):
+                continue
+            if nid not in out and self.exists(nid):
+                out.append(nid)
+        return sorted(out, key=lambda n: (n.day, n.seq), reverse=True)
+
+    def is_favorite(self, nid: NoteId) -> bool:
+        return nid in self.favorites()
+
+    def set_favorite(self, nid: NoteId, on: bool) -> None:
+        favs = [n for n in self.favorites() if n != nid]
+        if on:
+            favs.append(nid)
+        p = self._fav_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps([f"{n.day.isoformat()}/{n.seq:03d}" for n in favs], ensure_ascii=False, indent=2),
+                     encoding="utf-8")
+
+    def favorite_refs(self) -> list[NoteRef]:
+        """左欄「★ 我的最愛」那組用：(編號, 標題)，照 favorites() 的順序。"""
+        out = []
+        for nid in self.favorites():
+            ref = next((r for r in self.list_notes(nid.day) if r.id == nid), None)
+            if ref is not None:
+                out.append(ref)
+        return out
+
     def delete(self, nid: NoteId) -> None:
         self._remove_to_trash(self.path_for(nid))
         self._remove_day_dir_if_empty(nid.day)
@@ -554,6 +606,8 @@ class NoteStore:
     def import_file(self, src: Path, day: date) -> Optional[NoteId]:
         """匯入一個 .md / .txt。編碼判斷在 decode_text（UTF-8／UTF-16／Big5／GBK／Shift-JIS…）。空檔回 None。"""
         src = Path(src)
+        if src.stat().st_size > IMPORT_MAX_BYTES:
+            raise TooBig(f"{src.name}: {src.stat().st_size // 1024} KB > {IMPORT_MAX_BYTES // 1024} KB")
         text = decode_text(src.read_bytes())
         text = text.replace("\r\n", "\n").replace("\r", "\n")   # 記事本的 CRLF 統一成 LF（read_bytes 不會自動換）
         if text.strip() == "":
@@ -576,11 +630,17 @@ class NoteStore:
                 if d is not None:
                     for f in sorted(p.iterdir()):
                         if f.suffix.lower() in (".md", ".txt") and f.is_file():
-                            done += self.import_file(f, d) is not None
+                            try:
+                                done += self.import_file(f, d) is not None
+                            except TooBig:
+                                skipped += 1
                         elif f.suffix == EXT_ENC:
                             skipped += 1
                 elif p.is_file() and p.suffix.lower() in (".md", ".txt"):
-                    done += self.import_file(p, today) is not None
+                    try:
+                        done += self.import_file(p, today) is not None
+                    except TooBig:
+                        skipped += 1
                 if progress:
                     progress(done + skipped, 0)      # 總數事先不知道，0 = 只顯示做了幾張
         return done, skipped

@@ -93,3 +93,20 @@ class ExportDayTest(unittest.TestCase):
         self.assertEqual(st.export_day(d, out), 2)
         self.assertEqual(out.read_text(encoding="utf-8"), "# 甲\n一\n\n# 乙\n二\n")
         self.assertEqual(st.export_day(date(2026, 1, 1), tmp / "empty.md"), 0)
+
+
+class TooBigTest(unittest.TestCase):
+    def test_import_file_rejects_over_limit_and_folder_skips(self):
+        import tempfile, pathlib
+        from datetime import date
+        from personalnote import storage
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix="pn_big_"))
+        st = storage.NoteStore(tmp / "n", encrypt=False)
+        big = tmp / "big.txt"; big.write_bytes(b"a" * (storage.IMPORT_MAX_BYTES + 1))
+        with self.assertRaises(storage.TooBig):
+            st.import_file(big, date(2026, 10, 30))
+        self.assertTrue(issubclass(storage.TooBig, OSError))           # 呼叫端照「讀不了」處理
+        folder = tmp / "f"; folder.mkdir()
+        (folder / "a.txt").write_bytes(b"b" * (storage.IMPORT_MAX_BYTES + 1))
+        (folder / "b.md").write_text("# b\n", encoding="utf-8")
+        self.assertEqual(st.import_folder(folder, today=date(2026, 10, 30)), (1, 1))

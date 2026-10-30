@@ -6,7 +6,7 @@
 操作流程（定案）：
 - 開啟：回到上次看的那天；那天沒筆記就開今天。今天沒筆記 → 直接給一張空白的，打字才建檔。
 - 看之前的：左欄依日期分組（新的在上），點一張就開；◀ ▶ 是前一天／後一天；搜尋框過濾日期和內容。
-- 新增：上排 ＋、Ctrl+N、或日期列旁的 ＋（在那一天底下加）。
+- 新增：上排 ＋／Ctrl+N 一律加在今天；日期列旁的 ＋ 或右鍵「在這天新增」加在那一天；左下「額外新增」先選日期。
 - 刪除：筆記上按右鍵 → 刪除這張；🗑 → 清空目前這張／清掉整天／清掉全部。全部先搬 .app/trash。
 - 帶到今天：右鍵 → 複製到今天（前一天沒做完的事抄過來）。
 - 存檔：打字停 1.2 秒自動存；切換、關閉一定存。
@@ -24,10 +24,10 @@ from typing import Optional
 import customtkinter as ctk
 
 from ..i18n import _
-from .. import APP_NAME, AUTHOR, __version__, applog, dropfiles, platform_, startup
+from .. import APP_NAME, AUTHOR, __version__, applog, dropfiles, keys, platform_, startup
 from ..config import Settings
 from ..state import AppState
-from ..storage import TODO_DAY, TODO_ID, NoteId, NoteRef, NoteStore, title_of, tomorrow, yesterday
+from ..storage import FAV_DAY, IMPORT_MAX_BYTES, TODO_DAY, TODO_ID, NoteId, NoteRef, NoteStore, title_of, tomorrow, yesterday
 from . import theme as T
 from .editor import Editor
 from .sidebar import Sidebar
@@ -55,18 +55,10 @@ class MainWindow(ctk.CTk):
         self._heartbeat()
         self.attributes("-topmost", settings.topmost)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.keymap = keys.KeyMap.load(settings.keys)   # 快捷鍵表：預設疊上設定裡改過的（設定面板可改）
+        self._fav_cache: set = set()                    # 有星號的筆記（_refresh_sidebar 每次重算）
         self._build_ui()
-
-        self.bind("<Control-n>", lambda _e: self.new_note(self.current_day))
-        self.bind("<Control-backslash>", lambda _e: self.toggle_sidebar())   # Ctrl+B 讓給粗體
-        self.bind("<Control-f>", lambda _e: self.focus_search())
-        self.bind("<Control-t>", lambda _e: self.go_day(date.today()))
-        for seq in ("<Control-plus>", "<Control-equal>", "<Control-KP_Add>"):      # 一般鍵盤的 + 要 Shift，Ctrl+= 送的是 equal
-            self.bind(seq, lambda _e: self.zoom(1))
-        for seq in ("<Control-minus>", "<Control-KP_Subtract>"):
-            self.bind(seq, lambda _e: self.zoom(-1))
-        self.bind("<Control-Prior>", lambda _e: self.go_day(self._prev_day()))
-        self.bind("<Control-Next>", lambda _e: self.go_day(tomorrow(self.current_day)))
+        self._bind_keys()
         self.bind("<FocusIn>", self._on_focus_in)      # 回到視窗時看資料夾有沒有被別的程式動過
         self._last_focus_check = 0.0
         try:                                 # 拖檔案進視窗（見 dropfiles.py）；失敗只記 log，不影響其他功能
@@ -83,20 +75,31 @@ class MainWindow(ctk.CTk):
     def _build_ui(self) -> None:
         """畫整個視窗的內容（左欄、分隔線、工具列、編輯器）。換語言時 rebuild_ui() 會砍掉重畫一次。"""
         settings = self.settings
-        self.grid_columnconfigure(2, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        side = self.state_.sidebar_side              # 左欄放哪：left／right／bottom（設定裡改，state.json 記）
+        sb_pos, sp_pos, main_pos = self._dock_positions(side)
+        for i in range(3):                           # 重畫時上一種擺法的 weight 要先歸零，不然兩欄都會撐開
+            self.grid_columnconfigure(i, weight=0); self.grid_rowconfigure(i, weight=0)
+        self.grid_columnconfigure(main_pos["column"], weight=1)
+        self.grid_rowconfigure(main_pos["row"], weight=1)
         self.sidebar = Sidebar(self, on_select=self.open_note, on_add=self.new_note,
                                on_search=self._on_search, on_note_menu=self.note_menu,
                                on_add_pick=self.new_note_pick, on_reorder=self.reorder_day,
-                               on_day_menu=self.day_menu)
-        self.sidebar.grid(row=0, column=0, sticky="nsw")
-        self.sidebar.set_width(self.state_.sidebar_width)
+                               on_day_menu=self.day_menu,
+                               is_fav=lambda n: n in self._fav_cache, on_star=self.toggle_favorite)
+        self.sidebar.grid(**sb_pos)
+        if side == "bottom":
+            self.sidebar.set_height(self.state_.sidebar_height)
+        else:
+            self.sidebar.set_width(self.state_.sidebar_width)
         if self._search_kw:                      # 換語言重畫時搜尋還在：框裡的字也要還原，不然清單被濾了卻看不出為什麼
             self.sidebar._search.insert(0, self._search_kw)
         self.bind("<Configure>", self._fit_sidebar, add="+")   # 視窗縮小時左欄跟著讓位，不然工具列被擠出去
         # 左欄和內文之間一條可以拖的分隔線（寬度記在 state.json 的 sidebar_width）
-        self._splitter = tk.Frame(self, width=6, cursor="sb_h_double_arrow", bg=self._splitter_color())
-        self._splitter.grid(row=0, column=1, sticky="ns")
+        if side == "bottom":
+            self._splitter = tk.Frame(self, height=6, cursor="sb_v_double_arrow", bg=self._splitter_color())
+        else:
+            self._splitter = tk.Frame(self, width=6, cursor="sb_h_double_arrow", bg=self._splitter_color())
+        self._splitter.grid(**sp_pos)
         self._splitter.bind("<B1-Motion>", self._on_splitter_drag)
         self._splitter.bind("<ButtonRelease-1>", lambda _e: self._save_state())
         if not self.state_.sidebar_visible:
@@ -104,7 +107,7 @@ class MainWindow(ctk.CTk):
             self._splitter.grid_remove()
 
         main = ctk.CTkFrame(self, fg_color="transparent")
-        main.grid(row=0, column=2, sticky="nsew", padx=(4, T.PAD), pady=(6, 3))   # 底邊留少一點，狀態列才會在更下面
+        main.grid(**main_pos, sticky="nsew", padx=(T.PAD, 4) if side == "right" else (4, T.PAD), pady=(6, 3))   # 底邊留少一點，狀態列才會在更下面
         main.grid_rowconfigure(2, weight=1)
         main.grid_columnconfigure(0, weight=1)
         self._main = main
@@ -123,7 +126,7 @@ class MainWindow(ctk.CTk):
         """換語言：手上這張先存，砍掉所有元件重畫，再把同一張開回來。設定面板開著就關掉（它也是舊語言畫的）。"""
         self.editor.flush()
         current = self.current
-        self.state_ = self.state_.with_(sidebar_width=self.sidebar._width)   # 重畫用目前的寬，不是上次存檔的
+        self.state_ = self.state_.with_(sidebar_width=self.sidebar._width, sidebar_height=self.sidebar._height)   # 重畫用目前的尺寸，不是上次存檔的
         if getattr(self.sidebar, "_search_timer", None) is not None:
             self.sidebar.after_cancel(self.sidebar._search_timer)             # 排程中的搜尋會掛在被砍掉的元件上
         p = getattr(self, "_settings_panel", None)
@@ -132,6 +135,7 @@ class MainWindow(ctk.CTk):
         for w in (self.sidebar, self._splitter, self._main):
             w.destroy()
         self._build_ui()
+        self._bind_keys()                    # 內文框是新的，鍵要重綁
         if current is not None:
             self.open_note(current)
         else:
@@ -154,23 +158,13 @@ class MainWindow(ctk.CTk):
         nav = ctk.CTkFrame(parent, fg_color="transparent")
         nav.grid(row=0, column=0, sticky="ew")
         nav.grid_columnconfigure(1, weight=1)
-        self._nav_prev = mk(nav, "prev", lambda: self.go_day(self._prev_day()), tip=_("前一天（Ctrl+PgUp）"))
+        self._nav_prev = mk(nav, "prev", lambda: self.go_day(self._prev_day()), tip=lambda: _("前一天") + f"（{self.keymap.key_of('prev_day')}）")
         self._nav_prev.grid(row=0, column=0)
         self.day_label = ctk.CTkLabel(nav, text="", font=T.ui_font(14, "bold"), text_color=T.TEXT)
         self.day_label.grid(row=0, column=1, sticky="ew")
-        self._nav_next = mk(nav, "next", lambda: self.go_day(tomorrow(self.current_day)), tip=_("後一天（Ctrl+PgDn）"))
+        self._nav_next = mk(nav, "next", lambda: self.go_day(tomorrow(self.current_day)), tip=lambda: _("後一天") + f"（{self.keymap.key_of('next_day')}）")
         self._nav_next.grid(row=0, column=2)
-        # 語言下拉（Peter：最前面就要有 EN／繁中／简中／日本語，選了畫面直接換）
-        from .. import i18n
-        names = i18n.langs()                           # {代碼: 顯示名}，由翻譯表的欄位決定，程式裡不寫死
-        name_to_code = {v: k for k, v in names.items()}
-        self._lang_menu = ctk.CTkOptionMenu(nav, values=list(names.values()), width=78, height=28,
-                                            font=T.ui_font(12), dropdown_font=T.ui_font(12), corner_radius=8,
-                                            fg_color=T.ROW_HOVER, button_color=T.ROW_HOVER, text_color=T.TEXT,
-                                            command=lambda s: self.set_language(name_to_code[s]))
-        self._lang_menu.set(names.get(self.settings.lang, names.get(i18n.DEFAULT, i18n.ZH_TW_NAME)))
-        self._lang_menu.grid(row=0, column=3, padx=(6, 0))
-        _tooltip(self._lang_menu, _("語言"))
+        # 語言切換在 ⚙ 設定裡（工具列不放下拉，省位置）
         self._nav = nav
         nav.bind("<Configure>", lambda _e: self._refresh_day_label())   # 視窗變窄就換短一點的寫法
 
@@ -178,10 +172,10 @@ class MainWindow(ctk.CTk):
         act = ctk.CTkFrame(parent, fg_color="transparent")
         act.grid(row=1, column=0, sticky="ew", pady=(2, 6))
         act.grid_columnconfigure(3, weight=1)
-        mk(act, "menu", self.toggle_sidebar, tip=_("收起／展開左欄（Ctrl+\\）")).grid(row=0, column=0, padx=(0, 2))
+        mk(act, "menu", self.toggle_sidebar, tip=lambda: _("收起／展開左欄") + f"（{self.keymap.key_of('sidebar')}）").grid(row=0, column=0, padx=(0, 2))
         mk(act, "today", lambda: self.go_day(date.today()), text=_("今天"), width=64, tip=_("回到今天")).grid(row=0, column=1, padx=2)
-        mk(act, "plus", lambda: self.new_note(self.current_day), text=_("新筆記"), width=92, plain=False,
-           fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER, tip=_("在這一天加一張（Ctrl+N）")).grid(row=0, column=2, padx=2)
+        mk(act, "plus", lambda: self.new_note(date.today()), text=_("新筆記"), width=92, plain=False,
+           fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER, tip=lambda: _("今天加一張") + f"（{self.keymap.key_of('new_note')}）").grid(row=0, column=2, padx=2)
         # 復原／重做搬到內文上方的格式列（文字按鈕，箭頭圖示 Peter 說看不懂），這一排才放得下 640 寬
         mk(act, "attach", self.attach_file, tip=_("插入檔案（複製一份到 attachments）")).grid(row=0, column=5, padx=2)
         mk(act, "trash", self.clear_menu, tip=_("清除…")).grid(row=0, column=6, padx=2)
@@ -207,6 +201,7 @@ class MainWindow(ctk.CTk):
 
     def _refresh_sidebar(self) -> None:
         self.sidebar.searching = bool(self._search_kw.strip())   # 搜尋結果是過濾過的，左欄不給拖拉排序
+        self._fav_cache = set(self.store.favorites())              # 每列畫星號時查這個，不用每列讀一次檔
         if self._search_kw.strip() and self.store.count_notes() > self.SEARCH_BUSY_MIN:
             with self._busy(_("搜尋中")):
                 groups = self.store.search(self._search_kw)
@@ -221,6 +216,9 @@ class MainWindow(ctk.CTk):
         limit = self._sidebar_limit
         days = list(groups.keys())
         shown = {TODO_DAY: todo}
+        favs = self.store.favorite_refs()
+        if favs:
+            shown[FAV_DAY] = favs                   # ★ 我的最愛：待辦事項下面、日期上面
         shown.update({d: groups[d] for d in days[:limit]})
         if self.current and self.current.day in groups and self.current.day not in shown:
             shown[self.current.day] = groups[self.current.day]          # 正在看的那天一定要在
@@ -382,6 +380,8 @@ class MainWindow(ctk.CTk):
         m.add_command(label=_("複製到今天"), command=lambda: self.copy_to_today(nid))
         m.add_command(label=_("匯出這張…"), command=lambda: self.export_note(nid))
         m.add_command(label=_("舊版本…"), command=lambda: self.show_versions(nid))
+        m.add_command(label=_("取消我的最愛") if self.store.is_favorite(nid) else _("加入我的最愛"),
+                      command=lambda: self.toggle_favorite(nid))
         share = tk.Menu(m, tearoff=0, font=(T.UI_FONT_FAMILY, 10))
         share.add_command(label=_("用郵件寄出（開郵件程式）"), command=lambda: self.share_mail(nid))
         share.add_command(label=_("複製到 Google Drive 資料夾"), command=lambda: self.share_drive(nid))
@@ -492,7 +492,6 @@ class MainWindow(ctk.CTk):
         dlg.title(_("清除"))
         dlg.attributes("-topmost", True)
         _quiet_dialog(dlg)
-        dlg.geometry(f"+{self.winfo_rootx() + 80}+{self.winfo_rooty() + 80}")
         ctk.CTkLabel(dlg, text=_("清掉的東西會先搬到 .app/trash，不會直接消失。"),
                      font=T.ui_font(12), text_color=T.TEXT_MUTED).pack(padx=16, pady=(14, 8))
 
@@ -506,6 +505,7 @@ class MainWindow(ctk.CTk):
         row(_("清掉全部筆記"), self.clear_all, danger=True)
         ctk.CTkButton(dlg, text=_("取消"), fg_color="transparent", text_color=T.TEXT_MUTED,
                       hover_color=T.ROW_HOVER, command=dlg.destroy).pack(pady=(4, 12))
+        T.center_over(dlg, self)                 # 按鈕都放好了才知道多大，最後再置中
 
     def clear_current(self) -> None:
         if self.current is None:
@@ -581,24 +581,18 @@ class MainWindow(ctk.CTk):
     ATTACH_MAX_BYTES = 50_000_000     # 拖進來的檔超過這個大小先問一下（複製是同步的，太大會等）
 
     def _on_drop(self, paths: list[Path]) -> None:
-        """拖檔案進視窗：.md／.txt 匯成「今天」的筆記（最後一張打開）；其他檔（截圖、pdf、word）複製到
-        attachments 並在游標處插一個連結，跟按 📎 一樣。讀不了的檔跳過並提示。"""
+        """拖檔案進視窗：只收 .md／.txt（IMPORT_MAX_BYTES 以內），匯成「今天」的筆記（最後一張打開）。
+        其他檔（pdf、word、圖）不收——要放附件請用 📎 或 Ctrl+V 貼圖。讀不了、太大、不是文字檔、資料夾都列出來提示。"""
         self.editor.flush()
         last, bad = None, []
-        if self.editor.read_only and any(p.suffix.lower() not in self.TEXT_EXT for p in paths):
-            messagebox.showwarning(APP_NAME, _("這張是唯讀的（解不開或較新版本），附件沒有插入；先開別張再拖。"), parent=self)
-            paths = [p for p in paths if p.suffix.lower() in self.TEXT_EXT]
         for p in paths:
+            if not p.is_file() or p.suffix.lower() not in self.TEXT_EXT:
+                bad.append(p.name)
+                continue
             try:
-                if p.suffix.lower() in self.TEXT_EXT:
-                    nid = self.store.import_file(p, date.today())
-                    if nid is not None:
-                        last = nid
-                elif p.is_file():
-                    rel = self.store.add_attachment(p)
-                    self.editor.insert_own_line(f"[{p.name}]({rel.as_posix()})\n")
-                else:
-                    bad.append(p.name)           # 資料夾不收
+                nid = self.store.import_file(p, date.today())
+                if nid is not None:
+                    last = nid
             except (UnicodeDecodeError, OSError):
                 applog.exception("拖進來的檔讀不了 %s", p)
                 bad.append(p.name)
@@ -607,7 +601,8 @@ class MainWindow(ctk.CTk):
             self._refresh_sidebar()
             self.open_note(last)
         if bad:
-            messagebox.showwarning(APP_NAME, _("這些沒收進來（不是 UTF-8 文字檔或是資料夾）：\n") + "\n".join(bad), parent=self)
+            messagebox.showwarning(APP_NAME, _("只收 .md／.txt 文字檔（{0} MB 以內）；這些沒收進來：\n").format(IMPORT_MAX_BYTES // (1024 * 1024))
+                                   + "\n".join(bad), parent=self)
 
     def paste_image(self, img) -> Optional[str]:
         """剪貼簿的圖（截圖）→ 存成 attachments/貼圖_時間.png，回要插進筆記的那行。"""
@@ -677,6 +672,9 @@ class MainWindow(ctk.CTk):
             except UnicodeDecodeError:
                 messagebox.showwarning(APP_NAME, _("不是 UTF-8 純文字，跳過：{0}").format(p), parent=self)
                 continue
+            except OSError as e:                     # 太大（storage.TooBig）或讀不了
+                messagebox.showwarning(APP_NAME, _("沒收進來（超過 {0} MB 或讀不了）：{1}\n{2}").format(IMPORT_MAX_BYTES // (1024 * 1024), p, e), parent=self)
+                continue
             last = nid or last
         self._refresh_sidebar()
         if last:
@@ -718,17 +716,33 @@ class MainWindow(ctk.CTk):
         return T.SIDEBAR_BG[1] if ctk.get_appearance_mode() == "Dark" else T.SIDEBAR_BG[0]
 
     def _fit_sidebar(self, e=None) -> None:
-        """左欄最寬 = 視窗寬 − 330（工具列那排至少要這麼寬）。還原上次寬度、視窗縮小都經過這裡。"""
+        """左欄最寬 = 視窗寬 − 330（工具列那排至少要這麼寬）；放下面時寬＝視窗寬、最高 = 視窗高 − 300。
+        還原上次尺寸、視窗縮小都經過這裡。"""
         if e is not None and e.widget is not self:
+            return
+        if self.state_.sidebar_side == "bottom":
+            self.sidebar.set_width(self.winfo_width(), clamp=False)       # 列標題的「…」照實際寬算
+            room = self.winfo_height() - 300
+            if room > T.SIDEBAR_MIN_H and self.sidebar._height > room:
+                self.sidebar.set_height(room)
             return
         room = self.winfo_width() - 330
         if room > T.SIDEBAR_MIN and self.sidebar._width > room:
             self.sidebar.set_width(room)
 
     def _on_splitter_drag(self, e) -> None:
-        """拖分隔線：左欄寬 = 滑鼠在視窗裡的 x（左欄從 0 開始）。範圍 theme.SIDEBAR_MIN～MAX。"""
-        w = min(e.x_root - self.winfo_rootx(), self.winfo_width() - 330)   # 右邊至少留 330 給工具列
-        self.sidebar.set_width(w)
+        """拖分隔線：左欄寬（放下面時是高）跟著滑鼠。範圍 theme.SIDEBAR_MIN～MAX／SIDEBAR_MIN_H～MAX_H。"""
+        side = self.state_.sidebar_side
+        if side == "bottom":
+            h = min(self.winfo_rooty() + self.winfo_height() - e.y_root, self.winfo_height() - 300)
+            self.sidebar.set_height(h)
+            self.state_ = self.state_.with_(sidebar_height=self.sidebar._height)
+            return
+        if side == "right":
+            w = self.winfo_rootx() + self.winfo_width() - e.x_root
+        else:
+            w = e.x_root - self.winfo_rootx()
+        self.sidebar.set_width(min(w, self.winfo_width() - 330))   # 內文那邊至少留 330 給工具列
         self.state_ = self.state_.with_(sidebar_width=self.sidebar._width)
 
     def _on_format_toggle(self, visible: bool) -> None:
@@ -739,7 +753,7 @@ class MainWindow(ctk.CTk):
         """隨手存狀態（Windows 直接關機時不會走 _on_close，所以不能只靠關閉時存）。"""
         try:
             self.state_ = self.state_.with_(geometry=self.geometry(), last_day=self.current_day.isoformat(),
-                                            sidebar_width=self.sidebar._width)
+                                            sidebar_width=self.sidebar._width, sidebar_height=self.sidebar._height)
             self.state_.save(self.store.root)
         except Exception:
             pass
@@ -753,7 +767,7 @@ class MainWindow(ctk.CTk):
         self.settings.save()
 
     def set_language(self, lang: str) -> None:
-        """畫面語言：記進設定、載入翻譯表、整個視窗重畫（工具列下拉或設定面板都走這裡）。"""
+        """畫面語言：記進設定、載入翻譯表、整個視窗重畫（在設定面板裡切）。"""
         if lang == self.settings.lang:
             return
         from .. import i18n
@@ -766,6 +780,63 @@ class MainWindow(ctk.CTk):
         self.rebuild_ui()
         if panel_open:
             self.open_settings()            # 使用者是在面板裡切的：面板用新語言重開，不要突然不見
+
+    def _bind_keys(self) -> None:
+        """照 keymap 綁視窗層的快捷鍵（新筆記、今天、搜尋、左欄、前後一天、縮放）；內文框的交給 editor.bind_keys。改鍵時先解掉舊的。"""
+        for seq in getattr(self, "_key_seqs", ()):
+            self.unbind(seq)
+        self._key_seqs = []
+        actions = {
+            "new_note": lambda _e: self.new_note(date.today()),
+            "today": lambda _e: self.go_day(date.today()),
+            "search": lambda _e: self.focus_search(),
+            "sidebar": lambda _e: self.toggle_sidebar(),
+            "prev_day": lambda _e: self.go_day(self._prev_day()),
+            "next_day": lambda _e: self.go_day(tomorrow(self.current_day)),
+            "zoom_in": lambda _e: self.zoom(1),
+            "zoom_out": lambda _e: self.zoom(-1),
+        }
+        for action, fn in actions.items():
+            for seq in keys.sequences(self.keymap.key_of(action)):
+                self.bind(seq, fn)
+                self._key_seqs.append(seq)
+        self.editor.bind_keys(self.keymap)
+
+    def set_keys(self, km: keys.KeyMap) -> None:
+        """改快捷鍵：記進設定（只存跟預設不同的）、重綁視窗與內文框的鍵。工具列提示是函式，會自己讀新的鍵，不用重畫。"""
+        self.keymap = km
+        self.settings = self.settings.with_(keys=km.overrides())
+        self.settings.save()
+        self._bind_keys()
+        applog.info("快捷鍵 → %s", km.overrides() or "預設")
+
+    def set_sidebar_side(self, side: str) -> None:
+        """左欄放左／右／下：記進 state.json，整個視窗重畫（設定面板開著就重開）。"""
+        if side not in ("left", "right", "bottom") or side == self.state_.sidebar_side:
+            return
+        self.state_ = self.state_.with_(sidebar_side=side, sidebar_visible=True)
+        self._save_state()
+        applog.info("左欄位置 → %s", side)
+        panel_open = getattr(self, "_settings_panel", None) is not None and self._settings_panel.winfo_exists()
+        self.rebuild_ui()
+        if panel_open:
+            self.open_settings()
+
+    @staticmethod
+    def _dock_positions(side: str):
+        """左欄、分隔線、內文在 grid 裡的位置（row／column／sticky）。left：欄 0,1,2；right：欄 2,1,0；bottom：列 2,1,0。"""
+        if side == "right":
+            return dict(row=0, column=2, sticky="nse"), dict(row=0, column=1, sticky="ns"), dict(row=0, column=0)
+        if side == "bottom":
+            return dict(row=2, column=0, sticky="sew"), dict(row=1, column=0, sticky="ew"), dict(row=0, column=0)
+        return dict(row=0, column=0, sticky="nsw"), dict(row=0, column=1, sticky="ns"), dict(row=0, column=2)
+
+    def toggle_favorite(self, nid: NoteId) -> None:
+        """左欄星號（或右鍵）：加入／取消我的最愛；最上面「★ 我的最愛」那組跟著出現／消失。"""
+        on = not self.store.is_favorite(nid)
+        self.store.set_favorite(nid, on)
+        applog.info("我的最愛 %s %s", "加入" if on else "取消", nid)
+        self._refresh_sidebar()
 
     def set_topmost(self, on: bool) -> None:
         self.settings = self.settings.with_(topmost=on)
@@ -856,9 +927,28 @@ class MainWindow(ctk.CTk):
         return p
 
     def _heartbeat(self) -> None:
-        """每 2 秒告訴看門狗主迴圈還活著。"""
+        """每 2 秒告訴看門狗主迴圈還活著，順便看日期換了沒。"""
         self._watchdog.ping()
+        self._check_day_change()
         self.after(2000, self._heartbeat)
+
+    def _check_day_change(self) -> None:
+        """程式常常整晚開著：過了午夜，左欄的「● 今天」還停在昨天，按「新筆記」就會加到昨天。
+        日期一換就重畫左欄與上方日期；原本看的就是（舊的）今天，順便跳到新的今天。"""
+        today = date.today()
+        drawn = getattr(self, "_drawn_today", None)
+        if drawn is None:
+            self._drawn_today = today
+            return
+        if today == drawn:
+            return
+        self._drawn_today = today
+        was_on_today = self.current_day == drawn
+        self._refresh_sidebar()
+        if was_on_today:
+            self.go_day(today)
+        else:
+            self._refresh_day_label()
 
 
 _tooltip = T.tooltip             # 小提示：跟格式列同一套（theme.tooltip）
@@ -889,6 +979,7 @@ class SettingsPanel(ctk.CTkToplevel):
     """
 
     _THEME_KEYS = {"light": "一般", "system": "跟隨系統", "dark": "暗黑模式"}
+    _SIDE_KEYS = {"left": "左邊", "right": "右邊", "bottom": "下面"}     # 左欄位置；顯示時 _()
 
     @property
     def THEME_LABELS(self) -> dict:
@@ -900,7 +991,6 @@ class SettingsPanel(ctk.CTkToplevel):
         self.title(_("設定"))
         self.attributes("-topmost", True)
         _quiet_dialog(self)                          # 不閃：見 _quiet_dialog 的說明
-        self.geometry(f"+{win.winfo_rootx() + 40}+{win.winfo_rooty() + 60}")
         # 內容放在可捲動的框裡：螢幕矮（筆電 768）時面板比螢幕高，不捲就看不到底下的按鈕
         self.body = ctk.CTkScrollableFrame(self, width=560, fg_color="transparent")   # 英文字串比中文長，430 會切到按鈕
         self.body.pack(fill="both", expand=True)
@@ -929,6 +1019,12 @@ class SettingsPanel(ctk.CTkToplevel):
                                           command=lambda name: win.set_language(name_to_code[name]))
         lang_seg.set(names.get(win.settings.lang, names.get(i18n.DEFAULT, i18n.ZH_TW_NAME)))
         self._row(_("語言"), lang_seg)
+
+        side_names = {k: _(v) for k, v in self._SIDE_KEYS.items()}
+        side_seg = ctk.CTkSegmentedButton(self.body, values=list(side_names.values()), font=T.ui_font(12),
+                                          command=lambda name: win.set_sidebar_side({v: k for k, v in side_names.items()}[name]))
+        side_seg.set(side_names[win.state_.sidebar_side])
+        self._row(_("筆記列（左欄）放哪邊"), side_seg)
 
         box = ctk.CTkFrame(self.body, fg_color="transparent")
         self.size_lbl = ctk.CTkLabel(box, text=str(win.settings.font_size), width=30, font=T.ui_font(12))
@@ -994,8 +1090,13 @@ class SettingsPanel(ctk.CTkToplevel):
                      font=T.ui_font(11), text_color=T.TEXT_MUTED, wraplength=520, justify="left").grid(
             row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=(0, 4)); self._r += 1
 
-        self._section(_("快捷鍵"))
-        self._shortcut_table()
+        self._keys_box = None                       # 快捷鍵表預設收起（太長），點標題展開；展開後可以改鍵
+        self._capturing = None
+        self._key_btns: dict = {}
+        self._keys_btn = ctk.CTkButton(self.body, text=self._keys_title(False), font=T.ui_font(12, "bold"), anchor="w",
+                                       fg_color="transparent", hover_color=T.ROW_HOVER, text_color=T.TEXT, command=self._toggle_keys)
+        self._keys_btn.grid(row=self._r, column=0, columnspan=2, sticky="w", padx=10, pady=(12, 2)); self._r += 1
+        self._keys_row = self._r; self._r += 1      # 展開時表格放這一列
 
         self._section(_("紀錄與當機檔（回報問題時把這些一起給）"))
         log_dir = applog.log_dir()
@@ -1017,40 +1118,107 @@ class SettingsPanel(ctk.CTkToplevel):
         self.update_idletasks()
         inner = self.body.winfo_reqheight()          # 內容實際要的高度（body 是放內容的那個框）
         self.body.configure(height=min(inner, self.winfo_screenheight() - 140))   # 放得下就不出現捲軸
+        T.center_over(self, win)                 # 全部排好才知道面板多大，最後再放到主視窗正中央
 
-    SHORTCUTS = (
-        ("Ctrl+N", "新筆記"),
-        ("Ctrl+T", "回到今天"),
-        ("Ctrl+F", "跳到搜尋框"),
-        ("Ctrl+S", "立刻存（平常停 1.2 秒就自動存）"),
-        ("Ctrl+\\", "收起／展開左欄"),
-        ("Ctrl+H / Ctrl+Shift+H", "選取的字標黃底 ==重點== ／ 紅字 !!警告!!"),
-        ("Ctrl+B / Ctrl+I", "選取的字 **粗體** ／ *斜體*"),
-        ("Ctrl+Shift+C", "插一段 ``` 指令區塊（右上角可一鍵複製）"),
-        ("Ctrl+PgUp / PgDn", "前一天／後一天"),
-        ("Ctrl+滾輪、Ctrl+±", "字體放大縮小"),
-        ("Ctrl+V", "貼截圖（剪貼簿是圖就存成附件）"),
-        ("Ctrl+點連結", "開網址或檔案路徑"),
-        ("Ctrl+點 #標籤", "左欄搜尋這個標籤（再點一次清掉）"),
-        ("行首 1. 或 - 後 Enter", "自動接下一項，空項再 Enter 結束"),
-        ("格式列「打勾」", "這行變 - [ ] 清單；點方框打勾，完成的會劃掉"),
-        ("內文按右鍵", "剪下、複製、貼上、全選、複製成純文字（去掉記號）"),
-        ("筆記列按右鍵", "開啟、複製到今天、匯出、舊版本（還原）、分享（郵件／Google Drive）、刪除、清整天"),
-        ("日期列按右鍵", "在這天新增、整天合成一個 .md 匯出、清整天"),
-        ("拖檔案進視窗", ".md／.txt 匯成今天的筆記；其他檔變附件連結"),
-        ("長按筆記列再拖", "同一天裡上下調整順序（搜尋中不能排）"),
-    )
+    # ---- 快捷鍵（預設收起；點開可以看、可以改）----
+    def _keys_title(self, opened: bool) -> str:
+        return ("▾ " if opened else "▸ ") + _("快捷鍵（點開可以看、可以改）")
 
-    def _shortcut_table(self) -> None:
-        """兩欄表格：按鍵｜功能。要加快捷鍵改 SHORTCUTS 就好。"""
-        tbl = ctk.CTkFrame(self.body, fg_color="transparent")
-        tbl.grid_columnconfigure(1, weight=1)
-        for i, (key, what) in enumerate(self.SHORTCUTS):
-            ctk.CTkLabel(tbl, text=_(key), font=T.ui_font(11, "bold"), anchor="w").grid(
-                row=i, column=0, sticky="w", padx=(0, 14), pady=1)
-            ctk.CTkLabel(tbl, text=_(what), font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="w", justify="left", wraplength=340).grid(
-                row=i, column=1, sticky="w", pady=1)
-        tbl.grid(row=self._r, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 4)); self._r += 1
+    def _toggle_keys(self) -> None:
+        if self._keys_box is not None and self._keys_box.winfo_exists():
+            self._cancel_capture()
+            self._keys_box.destroy(); self._keys_box = None
+            self._keys_btn.configure(text=self._keys_title(False))
+            return
+        self._keys_box = self._build_keys_table()
+        self._keys_box.grid(row=self._keys_row, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 4))
+        self._keys_btn.configure(text=self._keys_title(True))
+
+    def _build_keys_table(self) -> ctk.CTkFrame:
+        """兩欄：左邊是鍵（可改的是按鈕，點了再按組合鍵；滑鼠那些是字，不能改），右邊是功能。"""
+        box = ctk.CTkFrame(self.body, fg_color="transparent")
+        box.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(box, text=_("點左邊的鍵，再按你要的組合鍵（要帶 Ctrl 或 Alt；F1～F12 可以單獨用），Esc 取消。兩個功能不能用同一組。"),
+                     font=T.ui_font(11), text_color=T.TEXT_MUTED, wraplength=520, justify="left").grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+        self._key_btns = {}
+        r = 1
+        for action, _default, desc in keys.ACTIONS:
+            b = ctk.CTkButton(box, text=self.win.keymap.key_of(action), width=150, height=26, font=T.ui_font(11, "bold"),
+                              fg_color="transparent", border_width=1, text_color=T.TEXT, hover_color=T.ROW_HOVER, anchor="w",
+                              command=lambda a=action: self._capture_key(a))
+            b.grid(row=r, column=0, sticky="w", padx=(0, 14), pady=1)
+            ctk.CTkLabel(box, text=_(desc), font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="w", justify="left", wraplength=340).grid(
+                row=r, column=1, sticky="w", pady=1)
+            self._key_btns[action] = b
+            r += 1
+        ctk.CTkButton(box, text=_("全部還原預設"), width=150, height=26, font=T.ui_font(11), fg_color="transparent",
+                      border_width=1, text_color=T.TEXT, hover_color=T.ROW_HOVER, command=self._reset_keys).grid(
+            row=r, column=0, sticky="w", pady=(4, 6))
+        self._key_status = ctk.CTkLabel(box, text="", font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="w", justify="left", wraplength=380)
+        self._key_status.grid(row=r, column=1, sticky="w", pady=(4, 6))
+        r += 1
+        for key, what in keys.GESTURES:                   # 滑鼠、Enter：不能改，只列出來
+            ctk.CTkLabel(box, text=_(key), font=T.ui_font(11, "bold"), anchor="w").grid(row=r, column=0, sticky="w", padx=(0, 14), pady=1)
+            ctk.CTkLabel(box, text=_(what), font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="w", justify="left", wraplength=340).grid(
+                row=r, column=1, sticky="w", pady=1)
+            r += 1
+        return box
+
+    def _capture_key(self, action: str) -> None:
+        """點了某個鍵的按鈕：等使用者按下一組鍵（面板接 KeyPress）。"""
+        self._cancel_capture()
+        self._capturing = action
+        self._key_btns[action].configure(text=_("請按組合鍵…"), fg_color=T.ACCENT, text_color="#ffffff")
+        self._key_status.configure(text=_("等你按鍵（Esc 取消）"))
+        self.focus_set()
+        self._capture_bind = self.bind("<KeyPress>", self._on_capture_key)
+
+    def _cancel_capture(self) -> None:
+        a = getattr(self, "_capturing", None)
+        if a is None:
+            return
+        self._capturing = None
+        try:
+            self.unbind("<KeyPress>", self._capture_bind)
+        except Exception:
+            pass
+        if a in self._key_btns and self._key_btns[a].winfo_exists():
+            self._key_btns[a].configure(text=self.win.keymap.key_of(a), fg_color="transparent", text_color=T.TEXT)
+
+    def _on_capture_key(self, e):
+        action = self._capturing
+        if action is None:
+            return None
+        if e.keysym == "Escape":
+            self._cancel_capture()
+            self._key_status.configure(text=_("沒有改"))
+            return "break"
+        name = keys.from_event(e)
+        if name is None:
+            if e.keysym not in keys.MODIFIER_KEYSYMS:     # 只按了 Ctrl／Shift 就繼續等
+                self._key_status.configure(text=_(keys.MSG_UNSUPPORTED))
+            return "break"
+        try:
+            km = self.win.keymap.set(action, name)
+        except keys.Conflict as c:
+            self._key_status.configure(text=_("「{0}」已經被「{1}」用了，換一組").format(c.name, _(c.desc)))
+            return "break"
+        except ValueError as err:
+            self._key_status.configure(text=_(str(err)))
+            return "break"
+        self._cancel_capture()
+        self.win.set_keys(km)
+        self._key_btns[action].configure(text=name)
+        self._key_status.configure(text=_("「{0}」改成 {1}").format(_(km.desc_of(action)), name))
+        return "break"
+
+    def _reset_keys(self) -> None:
+        self._cancel_capture()
+        self.win.set_keys(keys.KeyMap.load())
+        for a, b in self._key_btns.items():
+            b.configure(text=self.win.keymap.key_of(a))
+        self._key_status.configure(text=_("全部回到預設"))
 
     # ---- 排版小工具 ----
     def _section(self, text: str) -> None:

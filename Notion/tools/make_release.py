@@ -14,16 +14,16 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from personalnote import APP_NAME, __version__  # noqa: E402
 
-from personalnote.ui.main_window import SettingsPanel  # noqa: E402  快捷鍵段落直接從程式產生，不會跟畫面脫節
-SHORTCUT_LINES = "\n".join(f"- {k}：{w}" for k, w in SettingsPanel.SHORTCUTS)
+from personalnote import keys  # noqa: E402  快捷鍵段落直接從程式產生（預設值），不會跟畫面脫節
+SHORTCUT_LINES = "\n".join(f"- {k}：{w}" for k, w in keys.KeyMap.load().table())
 
 GUIDE = f"""{APP_NAME} {__version__}  使用說明
 
 這是什麼：桌面便利貼。筆記全部存在你自己的電腦（桌面的 Notion 資料夾），不經過任何雲端、不用帳號密碼。
-畫面預設是英文：視窗上方日期那排最右邊有個「EN」下拉，選「繁中」畫面馬上換（也有「简中」「日本語」），不用重開。
+畫面預設是英文：按工具列右上角的「⚙ 設定」，上面的「語言」選「繁中」畫面馬上換（也有「简中」「日本語」），不用重開。
 English: a local sticky-notes app. Everything stays on this PC (Desktop\\Notion). Run Notion.bat; Windows may show
-"Windows protected your PC" the first time (unsigned exe) → More info → Run anyway. The "EN" dropdown at the top right
-switches the language instantly.
+"Windows protected your PC" the first time (unsigned exe) → More info → Run anyway. Open ⚙ Settings and pick a
+language in the "Language" row; the window switches instantly.
 
 需要什麼：Windows 10 或 11（64 位元）。Windows 7 和 8.0 跑不起來（程式用的 Python 3.12 不支援），8.1 沒測過。
 不用另外安裝任何東西。
@@ -51,7 +51,7 @@ switches the language instantly.
 - 打勾清單：格式列「打勾」（或自己打「- [ ] 」）→ 畫面是方框，點一下打勾、完成的會劃掉；按 Enter 自動接下一個框。
 - #標籤：內文打 #專案A 會變主色，Ctrl+點它左欄就搜尋這個標籤（再點一次清掉）。
 - 常用指令：格式列的「指令」插一個 ``` 區塊，貼指令進去，右上角「複製」一鍵複製整段。
-- 把 .txt／.md 檔直接拖進視窗，就變成今天的一張筆記；拖截圖、pdf、word 進來會複製到 attachments 並插連結。
+- 把 .txt／.md 檔直接拖進視窗，就變成今天的一張筆記（1 MB 以內）；其他檔不收——截圖用 Ctrl+V 貼，附件用 📎 按鈕。
 - 左邊筆記列按右鍵：開啟、複製到今天、匯出這張、舊版本（看、還原）、分享（郵件／Google Drive 資料夾）、刪除這張（會問一次）、清掉整天。
   「分享 → 用郵件寄出」是開你電腦的郵件程式，內文是去掉記號的純文字（mailto 不能帶附件，太長會截斷）；
   「複製到 Google Drive 資料夾」要先裝 Google Drive 桌面版，程式會找它的同步資料夾存一份 .md。
@@ -59,11 +59,14 @@ switches the language instantly.
 - 左欄最上面紅字「待辦事項」：固定一張，不屬於任何日期，隨時點開就能寫。
 - 內文或標題按右鍵：剪下、複製、貼上（剪貼簿是截圖會直接變成圖）、全選、複製成純文字（記號去掉，貼去別的地方用）。
 - 左邊日期列按右鍵：在這天新增、整天合成一個 .md 匯出、清掉整天。滑過日期列才會出現「＋」。
+- 筆記列標題前的 ☆：點一下加入我的最愛（最上面多一組「★ 我的最愛」，點那裡的列也會開那張），再點一次取消。
 - 右下角：N 行 · N 字，和「已儲存 時間」（幾秒後自己淡掉）。
 - ⚙ 設定：語言、開機自動啟動、一般／跟隨系統／暗黑模式、字體大小、最上層、存檔位置、匯入匯出、垃圾桶與「還原上一次刪除」、加密開關、紀錄檔位置。
 
 快捷鍵
 {SHORTCUT_LINES}
+（上面的組合鍵可以在 ⚙ 設定 → 快捷鍵 裡自己改，兩個功能不能用同一組；滑鼠與 Enter 的那些不能改。）
+筆記列（左欄）可以在 ⚙ 設定裡改放右邊或下面。
 
 重要
 - 筆記預設用你的 Windows 帳號加密：硬碟拔到別台電腦讀不到。

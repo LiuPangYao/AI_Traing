@@ -22,7 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from dataclasses import dataclass, asdict, fields, replace
+from dataclasses import dataclass, asdict, field, fields, replace
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
@@ -57,8 +57,10 @@ class Settings:
     appdata: Optional[Path] = None          # note_dir.txt 要寫在哪個 APPDATA；None = 真的 %APPDATA%。測試一定要給假的，
                                              # 不然「換位置」會寫進使用者真正的設定（2026-10-29 發生過：壓力測試把 Peter 的指標改掉）
 
+    keys: dict = field(default_factory=dict)  # 使用者改過的快捷鍵 {功能代號: "Ctrl+Shift+N"}；沒改的用 keys.py 的預設
+
     # 這些欄位會寫進 settings.json（程式內可改的）；其餘只從 bat／命令列來
-    PERSISTED = ("theme", "font_size", "topmost", "encrypt", "lang")
+    PERSISTED = ("theme", "font_size", "topmost", "encrypt", "lang", "keys")
 
     # ---- 讀取 ----
     @classmethod
@@ -198,6 +200,10 @@ def _coerce(key: str, value: Any) -> Any:
     if key == "theme":
         v = str(value).strip().lower()
         return v if v in THEMES else "dark"
+    if key == "keys":
+        if not isinstance(value, dict):
+            return {}
+        return {str(a): str(k) for a, k in value.items() if isinstance(k, str)}   # 合不合規則由 keys.KeyMap.load 判
     if key == "lang":
         from . import i18n
         v = str(value).strip()

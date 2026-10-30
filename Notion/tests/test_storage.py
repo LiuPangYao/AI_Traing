@@ -180,3 +180,22 @@ class BulkTest(unittest.TestCase):
             self.assertEqual(seen[-1], (9, 9))
             self.assertEqual(st.count_notes(), 9)
             self.assertEqual(st.load(NoteId(date(2026, 10, 2), 2)), "# 1-2\nbody")
+
+
+class FavoritesTest(unittest.TestCase):
+    def test_set_list_and_prune(self):
+        tmp = tempfile.TemporaryDirectory()
+        st = NoteStore(Path(tmp.name), encrypt=False)
+        a, b = NoteId(date(2026, 10, 29), 1), NoteId(date(2026, 10, 30), 2)
+        st.save(a, "# A\n1"); st.save(b, "# B\n2")
+        self.assertFalse(st.is_favorite(a))
+        st.set_favorite(a, True); st.set_favorite(b, True)
+        self.assertEqual(st.favorites(), [b, a])                        # 新的日期在前
+        self.assertEqual([r.title for r in st.favorite_refs()], ["B", "A"])
+        st.set_favorite(a, False)
+        self.assertEqual(st.favorites(), [b])
+        st.delete(b)
+        self.assertEqual(st.favorites(), [])                            # 刪掉的讀時濾掉
+        st.set_favorite(NoteId(date(2026, 1, 1), 9), True)              # 不存在的也不列
+        self.assertEqual(st.favorites(), [])
+        tmp.cleanup()

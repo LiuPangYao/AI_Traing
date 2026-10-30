@@ -27,7 +27,7 @@ def show(parent, store: NoteStore, nid: NoteId, on_restore: Callable[[NoteId, Pa
         quiet(dlg)
     else:
         tk.Toplevel.resizable(dlg, False, False)
-    dlg.geometry(f"720x440+{parent.winfo_rootx() + 60}+{parent.winfo_rooty() + 80}")
+    T.center_over(dlg, parent, 720, 440)
     dlg.grab_set()
     dlg.grid_columnconfigure(1, weight=1)
     dlg.grid_rowconfigure(1, weight=1)

@@ -22,6 +22,8 @@ PAD = 10
 RADIUS = 6                   # 圓角小一點：CTk 畫圓角是用反鋸齒的圓，半徑大四個角看起來糊糊的（Peter 反映）
 SIDEBAR_WIDTH = 240          # 預設寬；要放得下英文的「2026/10/29 (Thu) Today」加「＋」（中文較短）
 SIDEBAR_MIN, SIDEBAR_MAX = 180, 480   # 拖分隔線能拖到的範圍（再窄日期標題會被切）
+SIDEBAR_HEIGHT = 220         # 左欄放下面時的預設高
+SIDEBAR_MIN_H, SIDEBAR_MAX_H = 120, 600   # 放下面時拖分隔線能拖到的範圍
 MIN_FONT, MAX_FONT = 8, 48
 
 from .. import platform_
@@ -82,6 +84,24 @@ def fmt_day(d, with_weekday: bool = True) -> str:
 LINK_COLOR = ("#1a5fd0", "#7fb0ff")
 
 
+def center_over(dlg, parent, width: int = 0, height: int = 0) -> None:
+    """跳出視窗（設定、清除、舊版本）放在主視窗正中央，不用每次自己拖。
+    沒給大小就先排版、拿內容需要的大小；主視窗整個在主螢幕裡時，順便夾住不讓跳出視窗超出螢幕
+    （主視窗在第二螢幕時座標可能是負的或超過主螢幕寬，那就不夾，照中央放）。"""
+    dlg.update_idletasks()
+    w = width or dlg.winfo_reqwidth()
+    h = height or dlg.winfo_reqheight()
+    px, py, pw, ph = parent.winfo_rootx(), parent.winfo_rooty(), parent.winfo_width(), parent.winfo_height()
+    x = px + (pw - w) // 2
+    y = py + (ph - h) // 2 - 16                 # 標題列不算在 rooty 裡，往上補一點才是視覺上的正中央
+    sw, sh = dlg.winfo_screenwidth(), dlg.winfo_screenheight()
+    if 0 <= px and px + pw <= sw:
+        x = max(0, min(x, sw - w))
+    if 0 <= py and py + ph <= sh:
+        y = max(0, min(y, sh - h - 48))         # 底下留工作列
+    dlg.geometry(f"{w}x{h}+{x}+{y}" if width else f"+{x}+{y}")
+
+
 def tooltip(widget, text: str, delay_ms: int = 600) -> None:
     """滑鼠停 0.6 秒出現的小提示（工具列、格式列按鈕都用這套）。"""
     import tkinter as tk
@@ -94,7 +114,8 @@ def tooltip(widget, text: str, delay_ms: int = 600) -> None:
         w = tk.Toplevel(widget)
         w.overrideredirect(True)
         w.attributes("-topmost", True)
-        tk.Label(w, text=text, font=(UI_FONT_FAMILY, 10), bg="#333843", fg="#ffffff", padx=8, pady=4).pack()
+        tk.Label(w, text=text() if callable(text) else text,          # 可以給函式：快捷鍵改了提示跟著變
+                 font=(UI_FONT_FAMILY, 10), bg="#333843", fg="#ffffff", padx=8, pady=4).pack()
         w.geometry(f"+{widget.winfo_rootx()}+{widget.winfo_rooty() + widget.winfo_height() + 4}")
         state["win"] = w
 

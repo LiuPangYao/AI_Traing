@@ -169,7 +169,6 @@ class Editor(ctk.CTkFrame):
         self.title.bind("<KeyRelease>", self._on_title_changed)
         self.title.bind("<Return>", lambda _e: (self.text.focus_set(), "break")[1])
         self.title.bind("<Control-MouseWheel>", self._on_ctrl_wheel)
-        self.title.bind("<Control-s>", lambda _e: self.flush())
         self.title.bind("<FocusOut>", lambda _e: self.flush())
         imefix.bind(self.title._entry)          # 注音標點修正（見 imefix.py）
 
@@ -228,19 +227,10 @@ class Editor(ctk.CTkFrame):
         self.text.tag_config(HIDE_TAG, elide=True)
         self._apply_tag_fonts()
         self._apply_link_color()
-        # Caps Lock 開著時 Windows 的 Tk 會送大寫 keysym，所以大小寫都綁，再用 event.state 的 Shift 位元分辨
-        for ks in ("b", "B"):
-            self.text.bind(f"<Control-{ks}>", lambda e: self._style_key("bold"))
-        for ks in ("i", "I"):
-            self.text.bind(f"<Control-{ks}>", lambda e: self._style_key("italic"))
-        for ks in ("h", "H"):                     # tk 預設 Ctrl+H 是退格，這裡擋掉；Shift 版是紅字
-            self.text.bind(f"<Control-{ks}>", lambda e: self._style_key("red" if e.state & 1 else "mark"))
-        for ks in ("c", "C"):                     # Ctrl+Shift+C 插指令區塊；單純 Ctrl+C 讓它照常複製
-            self.text.bind(f"<Control-{ks}>", lambda e: (self.insert_code_block(), "break")[1] if e.state & 1 else None)
+        self._key_seqs: list = []                 # bind_keys 綁過的 (widget, 序列)；存檔、重點、粗體…的鍵由主視窗照快捷鍵表來綁
         self.text.bind("<<Modified>>", self._on_modified)
         self.text.bind("<Control-MouseWheel>", self._on_ctrl_wheel)
         self.text.bind("<Control-Button-1>", self._on_ctrl_click)
-        self.text.bind("<Control-s>", lambda _e: self.flush())
         self.text.bind("<Return>", self._on_return)
         self.text.bind("<FocusOut>", lambda _e: self.flush())   # 切到別的視窗就先存，關機也少丟字
         self.text.bind("<Control-v>", self._on_paste)            # 剪貼簿是圖就存成附件並顯示
@@ -456,6 +446,27 @@ class Editor(ctk.CTkFrame):
 
     def is_dirty(self) -> bool:
         return self._dirty
+
+    def bind_keys(self, keymap) -> None:
+        """照快捷鍵表（keys.KeyMap）綁內文框與標題框的鍵：存檔、重點、紅字、粗體、斜體、指令區塊。改鍵時先解掉上次綁的。
+        字母綁大小寫兩種（Caps Lock 開著 tk 送大寫）；Ctrl+H 與 Ctrl+Shift+H 同時綁時 tk 挑修飾鍵較多的那個（見 keys.sequences）。"""
+        from .. import keys
+        for w, seq in self._key_seqs:
+            w.unbind(seq)
+        self._key_seqs = []
+
+        def bind(action, widget, fn):
+            for seq in keys.sequences(keymap.key_of(action)):
+                widget.bind(seq, fn)
+                self._key_seqs.append((widget, seq))
+
+        bind("save", self.text, lambda _e: self.flush())
+        bind("save", self.title, lambda _e: self.flush())
+        bind("mark", self.text, lambda _e: self._style_key("mark"))         # 順便擋掉 tk 自己的 Ctrl+H（退格）
+        bind("red", self.text, lambda _e: self._style_key("red"))
+        bind("bold", self.text, lambda _e: self._style_key("bold"))
+        bind("italic", self.text, lambda _e: self._style_key("italic"))     # 擋掉 tk 的 Ctrl+I（插 tab）
+        bind("code", self.text, lambda _e: (self.insert_code_block(), "break")[1])
 
     def destroy(self) -> None:
         for name in ("_fade_job", "_save_timer", "_hl_timer"):       # 排程中的工作先取消，視窗關了才不會 bgerror

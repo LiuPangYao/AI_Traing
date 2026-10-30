@@ -123,12 +123,19 @@ check([r.title for r in notes] == ["會議", "想法", "big5"], "txt/md 拖進�
 check(st.load(NoteId(today, 1)) == "# 會議\n- 決議一\n", "CRLF 變 LF")
 check(win.current == NoteId(today, 3), "最後一張打開")
 check(warned and "二進位.txt" in warned[-1], "二進位檔提示讀不了")
-dropfiles.simulate_drop(win, [src / "截圖 1.png", src / "規格.pdf", src])
+from personalnote.storage import IMPORT_MAX_BYTES
+(src / "大檔.txt").write_bytes(b"a" * (IMPORT_MAX_BYTES + 1))
+before = win.editor.get_text()
+dropfiles.simulate_drop(win, [src / "截圖 1.png", src / "規格.pdf", src, src / "大檔.txt"])
 win.update(); win.update()
-txt = win.editor.get_text()
-check("\n[截圖 1.png](attachments/截圖 1.png)\n[規格.pdf](attachments/規格.pdf)\n" in txt, "圖與 pdf 變附件連結、各自一行")
-check(sorted(p.name for p in (tmp / "n2" / "attachments").iterdir()) == ["截圖 1.png", "規格.pdf"], "附件有複製過去")
-check("來源 資料夾" in warned[-1], "資料夾不收並提示")
+check(win.editor.get_text() == before and "attachments" not in win.editor.get_text(), "圖、pdf 不收（只收 .md／.txt），內文沒變")
+check(len(st.list_notes(today)) == 3, "超過 1 MB 的 .txt 不收")
+check(all(n in warned[-1] for n in ("截圖 1.png", "規格.pdf", "來源 資料夾", "大檔.txt")), "不收的檔、資料夾、大檔都列在提示裡")
+# 真的拖放走訊息佇列（PostMessage）：以前攔截函式裡叫 widget.after 會讓程式整個被 C 執行階段終止（2026-10-30），現在要活著
+n_warn = len(warned)
+dropfiles.post_drop(win, [src / "二進位.txt"])
+win.update(); time.sleep(0.25); win.update(); win.update()
+check(len(warned) == n_warn + 1 and "二進位.txt" in warned[-1], "PostMessage 拖放：程式活著、收到並處理")
 win.editor.flush(); win.update()
 check([l.cget("text") for n, l in win.sidebar._rows.items() if n.day == today] == ["會議", "想法", "big5"], "左欄今天三張")
 from personalnote.storage import TODO_DAY
@@ -141,8 +148,41 @@ plus = win.sidebar._groups[today][4]
 check(plus.cget("text") == "", "＋ 平常藏著")
 plus.event_generate("<Enter>"); win.update()
 check(plus.cget("text") == "＋", "滑過日期列 ＋ 出現")
-win.event_generate("<Control-t>"); win.update()
+
+def key(seq):
+    """模擬按鍵。Tk 會把按鍵事件轉給有焦點的視窗；桌面上別的程式拿走焦點時事件會被丟掉，所以先要回來。"""
+    if win.focus_displayof() is None:
+        win.focus_force(); win.update()
+    win.event_generate(seq); win.update()
+
+key("<Control-t>")
 check(win.current_day == today, "Ctrl+T 回到今天")
+# 跨日：假裝昨天畫的左欄，今天的心跳發現日期換了
+from datetime import timedelta
+yday = today - timedelta(days=1)
+st.save(NoteId(yday, 1), "# 昨天\n還在打")
+win._refresh_sidebar(); win.go_day(yday); win.update()
+win._drawn_today = yday
+win._check_day_change(); win.update()
+check(win.current_day == today, "跨日：原本看的是（舊的）今天，過午夜自動跳到新的今天")
+check(win.sidebar._header_titles.get(today, "").startswith("● ") and not win.sidebar._header_titles.get(yday, "").startswith("● "), "跨日：左欄「● 今天」移到新的一天")
+# 左欄放右邊／下面／回左邊（整個視窗重畫）
+win.set_sidebar_side("right"); win.update()
+check(win.sidebar.grid_info()["column"] == 2 and win._main.grid_info()["column"] == 0, "左欄放右邊：欄位對調")
+win.set_sidebar_side("bottom"); win.update(); win.update()
+check(win.sidebar.grid_info()["row"] == 2 and win._main.grid_info()["row"] == 0 and win.sidebar.winfo_width() > 600, "左欄放下面：在內文下方、撐滿寬度")
+win.set_sidebar_side("left"); win.update()
+check(win.sidebar.grid_info()["column"] == 0 and win.state_.sidebar_side == "left", "放回左邊")
+# 我的最愛：點筆記列前的星號
+from personalnote.storage import FAV_DAY
+nid_f = NoteId(today, 2)
+win.sidebar._stars[nid_f].event_generate("<Button-1>"); win.update()
+check(st.is_favorite(nid_f) and FAV_DAY in win.sidebar._groups and nid_f in win.sidebar._fav_rows, "點星號：加入我的最愛，最上面多一組")
+check(win.sidebar._stars[nid_f].cget("text") == "★" and list(win.sidebar._groups)[1] == FAV_DAY, "星號變實心；那組排在待辦事項下面")
+win.sidebar._fav_rows[nid_f].event_generate("<Button-1>"); win.update()
+check(win.current == nid_f, "點我的最愛裡的那列會開那張")
+win.toggle_favorite(nid_f); win.update()
+check(not st.is_favorite(nid_f) and FAV_DAY not in win.sidebar._groups and win.sidebar._stars[nid_f].cget("text") == "☆", "再點一次：取消、群組消失、星號變空心")
 # 舊版本視窗：先做兩份快照，開視窗、選第二份、還原
 nid1 = NoteId(today, 1)
 st.SNAPSHOT_MIN_GAP = 0
@@ -176,6 +216,27 @@ check(win.editor.title.get() == "筆記4", "新筆記預設標題「筆記4」")
 check(win.editor.title._entry.selection_present(), "預設標題有反白（直接打字就蓋掉）")
 win.editor.flush(); win.update()
 check([r.title for r in st.list_notes(today)][-1] == "筆記4", "預設標題有存檔、左欄看得到")
+# 新筆記一律加在今天（看著前一天按也是）；快捷鍵改鍵、撞鍵、還原
+from datetime import timedelta as _td
+from personalnote import keys as keys_mod
+import json as _json
+yd = today - _td(days=1)
+st.save(NoteId(yd, 1), "# 前一天\n字"); win._refresh_sidebar(); win.go_day(yd); win.update()
+key("<Control-n>")
+check(win.current.day == today, "看著前一天按 Ctrl+N：新筆記開在今天")
+win.set_keys(win.keymap.set("new_note", "Ctrl+Shift+N")); win.update()
+win.go_day(yd); win.update(); cur = win.current
+key("<Control-n>")
+check(win.current == cur, "改鍵後舊的 Ctrl+N 沒作用")
+key("<Control-Shift-N>")
+check(win.current != cur and win.current.day == today, "新的 Ctrl+Shift+N 有作用")
+check(_json.loads(win.settings.settings_path.read_text(encoding="utf-8"))["keys"] == {"new_note": "Ctrl+Shift+N"}, "改的鍵存進 settings.json")
+try:
+    win.keymap.set("today", "Ctrl+F"); check(False, "撞鍵要被擋")
+except keys_mod.Conflict as c:
+    check(c.other == "search", "撞鍵被擋，並說是誰在用")
+win.set_keys(keys_mod.KeyMap.load()); win.update()
+check(win.keymap.overrides() == {} and _json.loads(win.settings.settings_path.read_text(encoding="utf-8"))["keys"] == {}, "全部還原預設")
 win.destroy()
 shutil.rmtree(tmp, ignore_errors=True)
 print("UI:", "PASS" if not errors else f"FAIL ({len(errors)})")

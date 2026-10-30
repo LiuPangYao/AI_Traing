@@ -35,6 +35,17 @@ class ConfigTest(unittest.TestCase):
         self.assertTrue((appdata / "PersonalNote" / "note_dir.txt").is_file())
         self.assertEqual(Settings.load([], env={}, appdata=appdata).note_dir, self.dir / "new")
 
+    def test_keys_persist_and_validate(self):
+        env = {"NOTE_DIR": str(self.dir / "k")}
+        s = Settings.load([], env=env, appdata=self.dir / "no_appdata")
+        self.assertEqual(s.keys, {})
+        s.with_(keys={"new_note": "Ctrl+Shift+N"}).save()
+        s2 = Settings.load([], env=env, appdata=self.dir / "no_appdata")
+        self.assertEqual(s2.keys, {"new_note": "Ctrl+Shift+N"})
+        data = json.loads(s2.settings_path.read_text(encoding="utf-8")); data["keys"] = "junk"
+        s2.settings_path.write_text(json.dumps(data), encoding="utf-8")
+        self.assertEqual(Settings.load([], env=env, appdata=self.dir / "no_appdata").keys, {})
+
     def test_defaults(self):
         # 用空的暫存資料夾當 note_dir，才不會讀到桌面 personalNote 裡真的 settings.json
         s = Settings.load([], env={"NOTE_DIR": str(self.dir / "fresh")}, appdata=self.dir / "no_appdata")
@@ -68,7 +79,7 @@ class ConfigTest(unittest.TestCase):
         s = Settings.load([], env={"NOTE_DIR": str(self.dir)}, appdata=self.dir / "ad").with_(font_size=18, topmost=True)
         s.save()
         data = json.loads(s.settings_path.read_text(encoding="utf-8"))
-        self.assertEqual(data, {"theme": "dark", "font_size": 18, "topmost": True, "encrypt": True, "lang": "en"})
+        self.assertEqual(data, {"theme": "dark", "font_size": 18, "topmost": True, "encrypt": True, "lang": "en", "keys": {}})
 
     def test_bad_settings_file_ignored(self):
         (self.dir / ".app").mkdir()

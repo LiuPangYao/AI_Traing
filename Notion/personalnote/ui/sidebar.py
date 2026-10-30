@@ -39,14 +39,16 @@ class Sidebar(ctk.CTkFrame):
                  on_note_menu: Callable[[NoteId, int, int], None],
                  on_add_pick: Optional[Callable[[], None]] = None,
                  on_reorder: Optional[Callable[[date, list[int]], None]] = None,
-                 on_day_menu: Optional[Callable[[date, int, int], None]] = None):
+                 on_day_menu: Optional[Callable[[date, int, int], None]] = None,
+                 is_fav: Optional[Callable[[NoteId], bool]] = None, on_star: Optional[Callable[[NoteId], None]] = None):
         """on_add_pick：左下「額外新增」按鈕（主視窗跳月曆選日期再開新筆記）。
         on_day_menu(day, x, y)：日期列按右鍵（主視窗出選單：匯出整天、清整天）。"""
         super().__init__(master, width=T.SIDEBAR_WIDTH, corner_radius=0, fg_color=T.SIDEBAR_BG)
         self._row_font = tkfont.Font(family=T.UI_FONT_FAMILY, size=11)   # 量標題寬度用，跟列的字型一樣
         self._header_font = tkfont.Font(family=T.UI_FONT_FAMILY, size=9)  # 日期列：小一號灰字（Peter：全是方塊很呆板）
         self._width = T.SIDEBAR_WIDTH
-        self._row_max_px = self._width - 62              # 列的可用寬：左欄寬減掉兩邊留白（14+4）、字的內距（10+10）、框、捲軸（量過剛好）
+        self._height = T.SIDEBAR_HEIGHT                 # 放下面時的高（set_height）
+        self._row_max_px = self._width - 84              # 列的可用寬：左欄寬減掉兩邊留白（14+4）、字的內距（10+10）、框、捲軸（量過剛好）
         self._titles: dict[NoteId, str] = {}             # 每列的完整標題（寬度改了要重算「…」）
         self._header_titles: dict[date, str] = {}        # 每天標題列的完整字（英文 2026/10/29 (Thu) Today 較長，窄的時候要「…」）
         self.grid_propagate(False)
@@ -58,6 +60,11 @@ class Sidebar(ctk.CTkFrame):
         self._on_note_menu = on_note_menu
         self._on_reorder = on_reorder
         self._on_day_menu = on_day_menu
+        self._is_fav = is_fav or (lambda _n: False)   # 這張有沒有星號（主視窗給，查的是它的快取）
+        self._on_star = on_star                      # 點星號：加入／取消我的最愛
+        self._star_fg = "#e5a50a"                    # 星號的顏色（亮暗主題都一樣）
+        self._stars: dict[NoteId, tk.Label] = {}     # 每列的星號（在自己那天的列）
+        self._fav_rows: dict[NoteId, tk.Label] = {}  # 「★ 我的最愛」那組裡的副本列（不登記到 _rows：選中、拖拉都只認本尊）
         self.searching = False                   # 主視窗設：目前清單是搜尋結果（過濾過，不給拖拉排序）
         self._press_job = None                   # 長按計時器
         self._drag: Optional[dict] = None        # 拖拉中：{"day", "nid", "lbl", "start"}
@@ -96,6 +103,8 @@ class Sidebar(ctk.CTkFrame):
                 w.destroy()
         self._empty.grid_forget()
         self._rows.clear()
+        self._stars.clear()
+        self._fav_rows.clear()
         self._bands.clear()
         self._titles.clear()
         self._selected = selected
@@ -112,6 +121,7 @@ class Sidebar(ctk.CTkFrame):
         self._sel_bg = _c(T.ROW_SELECTED_BG)
         self._groups.clear()
         row = 0
+        from ..storage import FAV_DAY
         for day, refs in groups.items():
             # 一天一個框：框的底色就是「這一天」的底色（選中那天深灰，其他跟左欄一樣），摺疊就是把筆記列藏起來
             box = tk.Frame(self._list, bg=self._bg)
@@ -120,7 +130,7 @@ class Sidebar(ctk.CTkFrame):
             row += 1
             widgets = [box] + self._day_header(box, day, len(refs))
             for r, ref in enumerate(refs, start=1):
-                widgets.append(self._note_row(box, ref, r))
+                widgets.append(self._note_row(box, ref, r, in_fav=(day == FAV_DAY)))
             self._groups[day] = widgets
             if day in self._collapsed:
                 self._apply_collapse(day)
@@ -148,13 +158,21 @@ class Sidebar(ctk.CTkFrame):
         if nid in self._rows:
             self._paint(self._rows[nid], True)
 
-    def set_width(self, width: int) -> None:
-        """主視窗拖分隔線時呼叫：改寬度，並照新寬度重算每列標題的「…」。"""
-        width = max(T.SIDEBAR_MIN, min(T.SIDEBAR_MAX, int(width)))
+    def set_height(self, height: int) -> None:
+        """左欄放下面時主視窗拖分隔線呼叫：改高度（寬度由 grid 撐滿視窗，set_width(…, clamp=False) 只算「…」）。"""
+        height = max(T.SIDEBAR_MIN_H, min(T.SIDEBAR_MAX_H, int(height)))
+        if height == self._height:
+            return
+        self._height = height
+        self.configure(height=height)
+
+    def set_width(self, width: int, clamp: bool = True) -> None:
+        """主視窗拖分隔線時呼叫：改寬度，並照新寬度重算每列標題的「…」。放下面時 clamp=False（寬＝視窗寬）。"""
+        width = max(T.SIDEBAR_MIN, min(T.SIDEBAR_MAX, int(width))) if clamp else max(1, int(width))
         if width == self._width:
             return
         self._width = width
-        self._row_max_px = width - 62
+        self._row_max_px = width - 84
         self.configure(width=width)
         for nid, lbl in self._rows.items():
             text = self._elide(self._titles.get(nid, lbl.cget("text")))
@@ -242,6 +260,9 @@ class Sidebar(ctk.CTkFrame):
         title = self._elide(title)
         if lbl.cget("text") != title:
             lbl.configure(text=title)
+        fav_lbl = self._fav_rows.get(nid)                # 我的最愛那組裡的副本也跟著改
+        if fav_lbl is not None:
+            fav_lbl.configure(text=self._elide(f"{nid.day:%m/%d} " + self._titles[nid]))
         return True
 
     def clear_search(self) -> None:
@@ -279,6 +300,8 @@ class Sidebar(ctk.CTkFrame):
         lbl.configure(bg=bg, fg=self._accent if selected else self._fg,
                       font=(T.UI_FONT_FAMILY, 11, "bold" if selected else "normal"))
         lbl.master.configure(bg=bg)
+        if nid in self._stars:
+            self._stars[nid].configure(bg=bg)
         if nid in self._bands:
             self._bands[nid].configure(bg=self._accent if selected else bg)
 
@@ -309,9 +332,10 @@ class Sidebar(ctk.CTkFrame):
         bar = tk.Frame(box, bg=self._bg)
         bar.grid(row=0, column=0, sticky="ew", pady=(4, 2))
         bar.grid_columnconfigure(1, weight=1)
-        from ..storage import TODO_DAY
+        from ..storage import TODO_DAY, FAV_DAY
         is_todo = day == TODO_DAY
-        label = T.fmt_day(day)
+        is_fav = day == FAV_DAY
+        label = ("★ " + _("我的最愛")) if is_fav else T.fmt_day(day)
         is_today = day == date.today()
         if is_today:
             label = "● " + label + _(" 今天")              # 今天：主色加一個點，其他天小灰字
@@ -319,18 +343,18 @@ class Sidebar(ctk.CTkFrame):
         arrow = tk.Label(bar, text="▾", bg=self._bg, fg=self._muted, font=(T.UI_FONT_FAMILY, 9), cursor="hand2", padx=2)
         arrow.grid(row=0, column=0, sticky="w")
         title = tk.Label(bar, text=self._elide_header(label), bg=self._bg,
-                         fg=_c(T.DANGER) if is_todo else self._accent if is_today else self._muted,   # 待辦事項：紅字
-                         font=(T.UI_FONT_FAMILY, 9, "bold" if (is_todo or is_today) else "normal"), anchor="w", cursor="hand2")
+                         fg=_c(T.DANGER) if is_todo else self._star_fg if is_fav else self._accent if is_today else self._muted,   # 待辦事項：紅字；我的最愛：星號色
+                         font=(T.UI_FONT_FAMILY, 9, "bold" if (is_todo or is_fav or is_today) else "normal"), anchor="w", cursor="hand2")
         title.grid(row=0, column=1, sticky="w")
         for w in (arrow, title, bar):
             w.bind("<Button-1>", lambda _e, d=day: self.toggle_day(d))
-            if self._on_day_menu is not None and not is_todo:
+            if self._on_day_menu is not None and not (is_todo or is_fav):
                 w.bind("<Button-3>", lambda e, d=day: self._on_day_menu(d, e.x_root, e.y_root))
         # ＋ 平常藏著，滑鼠滑到這一列才出現（Peter：平常乾淨一點）；寬度先佔好，出現時列不會跳
         plus = tk.Label(bar, text="", bg=self._bg, fg=self._muted, font=(T.UI_FONT_FAMILY, 11), width=2,
-                        cursor="arrow" if is_todo else "hand2", padx=6)   # 待辦事項只有一張，不給新增
+                        cursor="arrow" if (is_todo or is_fav) else "hand2", padx=6)   # 待辦事項只有一張、我的最愛不是日期：不給新增
         plus.grid(row=0, column=2, sticky="e", padx=(0, 4))
-        if not is_todo:
+        if not (is_todo or is_fav):
             plus.bind("<Button-1>", lambda _e, d=day: self._on_add(d))
             state = {"job": None}
 
@@ -368,22 +392,37 @@ class Sidebar(ctk.CTkFrame):
                 hi = mid - 1
         return text[:lo] + "…"
 
-    def _note_row(self, box: tk.Frame, ref: NoteRef, row: int) -> tk.Frame:
-        """一列＝框（色帶 3 px ＋ 標題字）。回傳框（排順序、摺疊用）；字放在 _rows、色帶放在 _bands。"""
+    def _note_row(self, box: tk.Frame, ref: NoteRef, row: int, in_fav: bool = False) -> tk.Frame:
+        """一列＝框（色帶 3 px ＋ 星號 ＋ 標題字）。回傳框（排順序、摺疊用）；字放在 _rows、色帶放在 _bands、星號放在 _stars。
+        in_fav：這列在「★ 我的最愛」那組裡——同一張的副本：標題前加日期，登記到 _fav_rows 而不是 _rows，不給拖拉排序。"""
         frame = tk.Frame(box, bg=self._bg)
         frame.grid(row=row, column=0, sticky="ew", padx=(10, 4), pady=1)
         band = tk.Frame(frame, width=3, bg=self._bg)
         band.pack(side="left", fill="y")
-        lbl = tk.Label(frame, text=self._elide(ref.title), bg=self._bg, fg=self._fg, font=(T.UI_FONT_FAMILY, 11),
-                       anchor="w", padx=8, pady=5, cursor="hand2")
+        fav = self._is_fav(ref.id)
+        star = tk.Label(frame, text="★" if fav else "☆", bg=self._bg, fg=self._star_fg if fav else self._muted,
+                        font=(T.UI_FONT_FAMILY, 11), padx=3, cursor="hand2")
+        star.pack(side="left", padx=(3, 0))
+        if self._on_star is not None:
+            star.bind("<Button-1>", lambda _e, n=ref.id: self._on_star(n))
+        text = (f"{ref.id.day:%m/%d} " if in_fav else "") + ref.title
+        lbl = tk.Label(frame, text=self._elide(text), bg=self._bg, fg=self._fg, font=(T.UI_FONT_FAMILY, 11),
+                       anchor="w", padx=5, pady=5, cursor="hand2")
         lbl.pack(side="left", fill="x", expand=True)
-        lbl.bind("<Button-1>", lambda e, n=ref.id, w=lbl: self._press(e, n, w))
-        lbl.bind("<B1-Motion>", self._drag_motion)
-        lbl.bind("<ButtonRelease-1>", self._release)
+        if in_fav:
+            lbl.bind("<Button-1>", lambda _e, n=ref.id: self._on_select(n))
+        else:
+            lbl.bind("<Button-1>", lambda e, n=ref.id, w=lbl: self._press(e, n, w))
+            lbl.bind("<B1-Motion>", self._drag_motion)
+            lbl.bind("<ButtonRelease-1>", self._release)
         lbl.bind("<Button-3>", lambda e, n=ref.id: self._on_note_menu(n, e.x_root, e.y_root))
-        lbl.bind("<Enter>", lambda _e, w=lbl, n=ref.id: w.configure(bg=self._hover) if n != self._selected else None)
-        lbl.bind("<Leave>", lambda _e, w=lbl, n=ref.id: w.configure(bg=self._day_bg_of(n.day)) if n != self._selected else None)
-        self._rows[ref.id] = lbl
-        self._bands[ref.id] = band
-        self._titles[ref.id] = ref.title
+        lbl.bind("<Enter>", lambda _e, w=lbl, n=ref.id: w.configure(bg=self._hover) if (in_fav or n != self._selected) else None)
+        lbl.bind("<Leave>", lambda _e, w=lbl, n=ref.id: w.configure(bg=w.master.cget("bg")) if (in_fav or n != self._selected) else None)
+        if in_fav:
+            self._fav_rows[ref.id] = lbl
+        else:
+            self._rows[ref.id] = lbl
+            self._bands[ref.id] = band
+            self._stars[ref.id] = star
+            self._titles[ref.id] = ref.title
         return frame
