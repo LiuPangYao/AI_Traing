@@ -77,6 +77,8 @@ class MainWindow(ctk.CTk):
             self.after(600, self.show_tour)                  # 第一次開：教一次怎麼用，之後不再出現（設定裡可再看）
         self.bind("<FocusIn>", self._on_focus_in)      # 回到視窗時看資料夾有沒有被別的程式動過
         self._last_focus_check = 0.0
+        self._cur_sig: Optional[tuple] = None          # 開著這張筆記的檔案 (mtime, size)：心跳比對，別的程式改了就重新載入
+        self._ext_conflict = False                     # 正在打字時外面改了：存檔後提醒一句「蓋掉了」
         try:                                 # 拖檔案進視窗（見 dropfiles.py）；失敗只記 log，不影響其他功能
             if not dropfiles.enable(self, self._on_drop):
                 applog.info("拖檔案功能沒開（不是 Windows 或接不上視窗）")
@@ -261,6 +263,35 @@ class MainWindow(ctk.CTk):
         if self.store.refresh_if_changed():
             applog.info("資料夾被外部改動，重掃索引")
             self._refresh_sidebar()
+        self._check_current_file()
+
+    def _file_sig(self, nid: NoteId) -> Optional[tuple]:
+        try:
+            st = self.store.path_for(nid).stat()
+        except OSError:
+            return None
+        return (st.st_mtime, st.st_size)
+
+    def _check_current_file(self) -> None:
+        """開著的這張在磁碟上被別的程式改了（Peter 用別的工具改完存檔，畫面沒跟上）：
+        沒在打字 → 直接重新載入，游標留在原地；正在打字 → 只提醒，不蓋掉他打的字（他存檔時會蓋掉外面那版）。"""
+        if self.current is None:
+            return
+        sig = self._file_sig(self.current)
+        if sig is None or sig == self._cur_sig:
+            return
+        self._cur_sig = sig
+        if self.editor.is_dirty():
+            self._ext_conflict = True             # 打字會把狀態列換成「輸入中…」，所以存檔後再提醒一次
+            self.editor._set_status(_("這張筆記被別的程式改了；你這裡的修改存檔時會蓋掉它"), fade=False)
+            applog.info("外部改動 %s-%03d：畫面上有未存的字，不重載", self.current.day, self.current.seq)
+            return
+        text, ok = self.store.try_load(self.current)
+        self.editor.reload_text(text, read_only=not ok)
+        self.editor._set_status(_("這張筆記被別的程式改了，已重新載入"), fade=True)
+        applog.info("外部改動 %s-%03d：重新載入 長度=%d", self.current.day, self.current.seq, len(text))
+        self._refresh_backlinks()
+        self._refresh_sidebar()               # 標題可能也改了
 
     def _sidebar_more(self) -> None:
         self._sidebar_limit += self.SIDEBAR_DAYS
@@ -320,6 +351,8 @@ class MainWindow(ctk.CTk):
         self.current = nid
         text, ok = self.store.try_load(nid)
         self.editor.set_text(text, read_only=not ok)   # 解不開的只能看，不會被存檔蓋掉
+        self._cur_sig = self._file_sig(nid)
+        self._ext_conflict = False
         applog.info("開啟 %s-%03d 可讀=%s 長度=%d", nid.day, nid.seq, ok, len(text))
         if pulse:
             self.after(0, lambda: self.sidebar.pulse(nid))     # 左欄畫好之後再閃（anim.APPEAR）
@@ -365,7 +398,11 @@ class MainWindow(ctk.CTk):
         except Exception:
             applog.exception("快照失敗（不影響存檔）")   # history 寫不進去不能擋正式存檔
         self.store.save(self.current, text)
+        self._cur_sig = self._file_sig(self.current)
         applog.info("存檔 %s-%03d 長度=%d", self.current.day, self.current.seq, len(text))
+        if self._ext_conflict:
+            self._ext_conflict = False
+            self.after(0, lambda: self.editor._set_status(_("已存檔，蓋掉了別的程式改的那版"), fade=True))   # 等 flush 自己的「已存檔」先寫完
         new_title = title_of(text)
         if old_title and new_title and old_title != new_title:
             try:
@@ -1163,6 +1200,7 @@ class MainWindow(ctk.CTk):
         self._watchdog.ping()
         self._check_day_change()
         self._tick_usage(time.monotonic())
+        self._check_current_file()           # 一個 stat，很便宜
         self.after(2000, self._heartbeat)
 
     def _touch_activity(self, _e=None) -> None:

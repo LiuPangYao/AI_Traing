@@ -378,6 +378,18 @@ check(win._drop_note_link(NoteId(today, 2), 0, 0) is False, "放在內文以外�
 win.open_note(NoteId(today, 2)); win.update()
 win._save_current("# 想法2\n內容\n"); win.update()
 check("[[想法2]]" in st.try_load(nid_a)[0] and "[[想法]]" not in st.try_load(nid_a)[0], "改標題後別張的 [[想法]] 自動變 [[想法2]]")
+# 開著的筆記在磁碟上被別的程式改了
+win.open_note(nid_a); win.update()
+time.sleep(0.05)
+NoteStore(st.root, encrypt=st.encrypt).save(nid_a, "# 會議（外面改的）\n外部內容\n")
+win._check_current_file(); win.update()
+check(win.editor.get_text().startswith("# 會議（外面改的）"), "沒在打字：別的程式改了就自動重新載入")
+tx.insert("end", "我在打字"); win.editor._mark_dirty(); time.sleep(0.05)
+NoteStore(st.root, encrypt=st.encrypt).save(nid_a, "# 會議（又改）\n再改一次\n")
+win._check_current_file()
+check("我在打字" in win.editor.get_text() and "被別的程式改了" in win.editor.status.cget("text"), "正在打字：不蓋掉，只提醒")
+win.update(); win.editor.flush(); win.update()
+check(st.try_load(nid_a)[0].rstrip().endswith("我在打字") and "蓋掉了" in win.editor.status.cget("text"), "存檔後以畫面上的為準，並提醒蓋掉了外面那版")
 from personalnote.ui import datepick as _dp
 from tkinter import filedialog
 picks = iter([yd, today]); _dp.ask_date = lambda *a, **k: next(picks)

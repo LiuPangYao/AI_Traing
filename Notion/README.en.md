@@ -28,7 +28,7 @@ The side panel lists notes by day; the ☆ before a title marks a favorite. The 
 | Checklists | A line starting with `- [ ] ` (format bar "Check" or typed) becomes a box; click to tick, done items are struck through; the file holds GitHub-style `- [x]` |
 | #tags | `#projectA` in the text shows in the accent colour; Ctrl+click searches that tag in the side panel |
 | Right-click menus | Text and title: cut, copy, paste (a screenshot on the clipboard becomes an image), select all, copy as plain text; note rows: open, copy to today, export, older versions, favorite, share, delete; day headers: add here, export the day as one `.md`, clear the day |
-| Auto-save | Saves 1.2 s after you stop typing, and on switching or closing; if saving fails a rescue file is kept |
+| Auto-save | Saves 1.2 s after you stop typing, and on switching or closing; if saving fails a rescue file is kept; if another program changes the open note, it reloads when you are not typing and warns you when you are |
 | Markup | Select text and mark `==highlight==` (yellow), `!!warning!!` (red), `**bold**`, `*italic*`; the file stores the marks, so exports stay readable. Marks are hidden except on the cursor line |
 | Command blocks | ``` blocks are monospaced on a dark background with a "Command | Copy" header that copies the whole block (commands, prompts) |
 | Links | URLs and Windows paths (including `\\server\...`) become links; Ctrl+click opens; executables ask first |

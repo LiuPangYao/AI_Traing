@@ -363,3 +363,6 @@ Ctrl+F 搜尋日期或內容,Ctrl+F searches dates and text,Ctrl+F 搜索日期�
 連到那一天；內文下面會列「連到這張的」反向連結；改標題會自動更新別張的 [[連結]],Links to that day; the “Linked from” row under the text lists backlinks; renaming a title updates [[links]] in other notes,链接到那一天；正文下面会列“链接到这张的”反向链接；改标题会自动更新别张的 [[链接]],その日へのリンク。本文の下に「このノートへのリンク」（バックリンク）が並びます。タイトルを変えると他のノートの [[リンク]] も更新,keys.GESTURES
 左欄筆記長按拖進內文,Long-press a note in the side panel and drag it into the text,左栏笔记长按拖进正文,サイドパネルのノートを長押しして本文へドラッグ,keys.GESTURES
 在落點插一個 [[標題]] 連結,Inserts a [[title]] link where you drop it,在落点插一个 [[标题]] 链接,ドロップした位置に [[タイトル]] リンクを挿入,keys.GESTURES
+這張筆記被別的程式改了；你這裡的修改存檔時會蓋掉它,This note was changed by another program; saving will overwrite that change,这张笔记被别的程序改了；你这里的修改存档时会盖掉它,このノートは別のプログラムで変更されました。ここでの編集を保存するとそれを上書きします,personalnote\ui\main_window.py:284
+這張筆記被別的程式改了，已重新載入,This note was changed by another program; reloaded,这张笔记被别的程序改了，已重新载入,このノートは別のプログラムで変更されたため、読み込み直しました,personalnote\ui\main_window.py:289
+已存檔，蓋掉了別的程式改的那版,Saved; the change made by another program was overwritten,已存档，盖掉了别的程序改的那版,保存しました。別のプログラムによる変更は上書きされました,personalnote\ui\main_window.py:405

@@ -289,6 +289,20 @@ class Editor(ctk.CTkFrame):
         self._fade_job: Optional[str] = None
 
     # ---- 主視窗用 ----
+    def reload_text(self, text: str, read_only: bool = False) -> None:
+        """同一張筆記在磁碟上被別的程式改了：換內容但游標與捲動位置盡量留在原地。"""
+        tk_text = self.text._textbox
+        try:
+            insert, top = tk_text.index("insert"), tk_text.yview()[0]
+        except tk.TclError:
+            insert, top = "1.0", 0.0
+        self.set_text(text, read_only)
+        try:
+            tk_text.mark_set("insert", insert)
+            tk_text.yview_moveto(top)
+        except tk.TclError:
+            pass
+
     def set_text(self, text: str, read_only: bool = False) -> None:
         """整份筆記文字進來：第一行是標題，其餘是內文（格式見 storage.split_title）。
         read_only=True 用在解不開的筆記：顯示說明，不給改、不會存。"""
