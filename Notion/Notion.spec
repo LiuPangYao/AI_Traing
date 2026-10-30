@@ -29,7 +29,7 @@ splash = Splash(
     text_pos=(140, 116),                 # 文字左下角（圖是 360×180；跟 make_splash 第二行同一個位置）
     text_size=12,
     text_color='#6e737d',
-    text_font='Microsoft JhengHei UI',
+    # text_font 不設：Tk 預設字型會自動找系統的中文字型；名字有空格（Microsoft JhengHei UI）會讓啟動畫面的 Tcl 腳本掛掉，整個畫面變成空白 tk 視窗
     text_default=f'載入中…  v{__version__}',
     minify_script=True,
     always_on_top=True,

@@ -4,39 +4,39 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-ACCENT = ("#4f5bd5", "#8b93ff")   # 主色：選中的筆記、按鈕、連結（靛藍，比純藍柔和；Peter 2026-10-30 要一套好一點的配色）
-ACCENT_HOVER = ("#3f49b8", "#7a82f0")
-SIDEBAR_BG = ("#f0eee9", "#1f2026")   # 左欄：暖灰（紙張感）
-MAIN_BG = ("#f7f6f2", "#17181c")   # 視窗底：暖白，比內文框暗一點點，白框才看得出來
-EDITOR_BG = ("#ffffff", "#24262c")   # 可以打字的地方：純白
-EDITOR_BORDER = ("#d9d6cf", "#3a3d46")   # 標題欄、內文框的細邊
-TEXT = ("#1c1b19", "#e8e6e3")   # 近黑（不用純黑，長時間看比較不刺）
-TEXT_MUTED = ("#7a776f", "#9b9a95")
-ROW_HOVER = ("#e6e3dc", "#2c2e35")
-DAY_HEADER = ("#3f3e3a", "#c5c4bf")
-DAY_ACTIVE_BG = ("#e8e5dd", "#2a2c33")   # 左欄：選中那張所在的那一天整組的底色
-ROW_SELECTED_BG = ("#dde0f7", "#33375a")   # 左欄：選中那張的淡靛藍底（左邊再加一條主色色帶）
-DANGER = ("#d9534f", "#e06c66")
-CARD_BG = ("#ffffff", "#2a2c33")   # 設定面板的卡片
-DIVIDER = ("#e8e5de", "#3a3d46")      # 卡片裡列與列之間的細線
-PANEL_BG = ("#f3f1ec", "#1c1d22")   # 設定面板右邊的底
-BTN_SOFT_BG = ("#e9ebfa", "#343a5e")   # 次要按鈕：淡靛藍底、靛藍字
-BTN_SOFT_HOVER = ("#dbdff7", "#3f4670")
-BTN_SOFT_FG = ("#4149c0", "#aab0ff")
-KEYCAP_BG = ("#efede8", "#3a3d46")   # 快捷鍵表的鍵帽
-KEYCAP_HOVER = ("#e3e0d9", "#464a55")
+ACCENT = ("#4f5bd5", "#7d87ff")   # 主色：選中的筆記、按鈕、連結（靛藍，比純藍柔和；Peter 2026-10-30 要一套好一點的配色）
+ACCENT_HOVER = ("#3f49b8", "#6a74f0")
+SIDEBAR_BG = ("#f0eee9", "#222120")   # 左欄：暖灰（紙張感）
+MAIN_BG = ("#f7f6f2", "#161513")   # 視窗底：暖白，比內文框暗一點點，白框才看得出來
+EDITOR_BG = ("#ffffff", "#2e2d2a")   # 可以打字的地方：純白
+EDITOR_BORDER = ("#d9d6cf", "#45433e")   # 標題欄、內文框的細邊
+TEXT = ("#1c1b19", "#f0ede7")   # 近黑（不用純黑，長時間看比較不刺）
+TEXT_MUTED = ("#7a776f", "#b0aca4")
+ROW_HOVER = ("#e6e3dc", "#33322e")
+DAY_HEADER = ("#3f3e3a", "#cfcbc3")
+DAY_ACTIVE_BG = ("#e8e5dd", "#2c2b28")   # 左欄：選中那張所在的那一天整組的底色
+ROW_SELECTED_BG = ("#dde0f7", "#3a3e66")   # 左欄：選中那張的淡靛藍底（左邊再加一條主色色帶）
+DANGER = ("#d9534f", "#ff7b72")
+CARD_BG = ("#ffffff", "#2a2926")   # 設定面板的卡片
+DIVIDER = ("#e8e5de", "#403e39")      # 卡片裡列與列之間的細線
+PANEL_BG = ("#f3f1ec", "#1c1b19")   # 設定面板右邊的底
+BTN_SOFT_BG = ("#e9ebfa", "#343a66")   # 次要按鈕：淡靛藍底、靛藍字
+BTN_SOFT_HOVER = ("#dbdff7", "#41487c")
+BTN_SOFT_FG = ("#4149c0", "#c0c6ff")
+KEYCAP_BG = ("#efede8", "#3a3934")   # 快捷鍵表的鍵帽
+KEYCAP_HOVER = ("#e3e0d9", "#46443f")
 # ---- 以下也都在這裡（色碼只准出現在這個檔；tools/check_colors.py 會擋）----
 ON_ACCENT = "#ffffff"                     # 主色底上的字（按鈕、選中的導覽、月曆深格）
-MARK_BG = ("#fff1a8", "#5c4f14")          # ==重點== 的黃底
+MARK_BG = ("#fff1a8", "#6a5713")          # ==重點== 的黃底
 RED_FG = ("#d13438", "#ff7b72")           # !!紅字!!
-CODE_BG = ("#ecebe6", "#181a1f")          # 指令區塊底色：比內文框深一階（終端機感）
-CODE_FG = ("#1b2430", "#d7dde6")
-CODE_MUTED = ("#6b7280", "#8b93a1")       # 區塊裡的「指令」標籤、複製按鈕
+CODE_BG = ("#ecebe6", "#1d1c1a")          # 指令區塊底色：比內文框深一階（終端機感）
+CODE_FG = ("#1b2430", "#dedad2")
+CODE_MUTED = ("#6b7280", "#8f8b83")       # 區塊裡的「指令」標籤、複製按鈕
 TOOLTIP_BG = "#333843"                    # 小提示：深底白字，亮暗主題都一樣
 TOOLTIP_FG = "#ffffff"
 STAR = "#e5a50a"                          # 我的最愛星號（亮暗主題都一樣）
 CAL_LEVELS = (("#ffffff", "#e4e6fb", "#c3c8f6", "#98a1ee", "#5f6ad9"),     # 月曆熱度：0／<10／<30／<60／≥60 分（淺色）
-              ("#2a2c33", "#33375a", "#3f4670", "#4d579a", "#8b93ff"))     # （深色）
+              ("#2e2d2a", "#343a66", "#434b8c", "#5560bf", "#7d87ff"))     # （深色）
 CAL_SUB_ON_DARK = "#e8eefc"               # 月曆深格裡的小字
 
 PAD = 10
@@ -105,7 +105,7 @@ def fmt_day(d, with_weekday: bool = True) -> str:
     return _("{0}（{1}）").format(s, _(WEEKDAY_ZH[d.weekday()])) if with_weekday else s
 
 
-LINK_COLOR = ("#3b49c9", "#9aa3ff")
+LINK_COLOR = ("#3b49c9", "#a6adff")
 
 
 def center_over(dlg, parent, width: int = 0, height: int = 0) -> None:
