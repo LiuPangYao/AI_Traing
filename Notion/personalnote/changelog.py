@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 ENTRIES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("1.0.9",
+     ("啟動畫面改成不透明白底（圓角外的透明邊會混成粉紅色）；色碼集中到 theme.py 並加檢查",),
+     ("Splash screen is now opaque white (transparent corners blended into a pink fringe); colour codes centralised in theme.py with a check",)),
     ("1.0.8",
      ("淺色主題改成白底黑字、藍色選中；工具列按鈕之間與上下留白拉開",),
      ("Light theme is now white background, black text, blue selection; more spacing between toolbar buttons and rows",)),

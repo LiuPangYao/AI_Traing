@@ -13,11 +13,11 @@ from personalnote import APP_NAME, __version__  # noqa: E402
 
 SS = 4                                   # 超取樣：放大 4 倍畫，最後 LANCZOS 縮回 360×180，邊才平滑（Peter：有鋸齒）
 W, H = 360 * SS, 180 * SS
-img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+img = Image.new("RGB", (W, H), (255, 255, 255))                 # 整張不透明：PyInstaller 的啟動畫面不支援半透明，圓角外的透明像素會混成粉紅邊（Peter 2026-10-30）
 d = ImageDraw.Draw(img)
-d.rounded_rectangle((0, 0, W - 1, H - 1), radius=18 * SS, fill=(255, 255, 255, 255), outline=(200, 204, 212, 255), width=2 * SS)
+d.rectangle((0, 0, W - 1, H - 1), outline=(200, 204, 212), width=2 * SS)
 # 圖標：黑方塊白 N（跟 icon.ico 同一個意思）
-d.rounded_rectangle((28 * SS, 46 * SS, (28 + 88) * SS, (46 + 88) * SS), radius=14 * SS, fill=(20, 20, 20, 255))
+d.rounded_rectangle((28 * SS, 46 * SS, (28 + 88) * SS, (46 + 88) * SS), radius=14 * SS, fill=(20, 20, 20))
 
 
 def font(size: int, bold: bool = False):
@@ -28,9 +28,9 @@ def font(size: int, bold: bool = False):
     return ImageFont.load_default()
 
 
-d.text(((28 + 44) * SS, (46 + 44) * SS), "N", font=font(56 * SS, True), fill=(255, 255, 255, 255), anchor="mm")
-d.text((140 * SS, 70 * SS), APP_NAME, font=font(30 * SS, True), fill=(30, 30, 30, 255), anchor="lm")
-d.text((140 * SS, 108 * SS), f"載入中…  v{__version__}", font=font(15 * SS), fill=(110, 115, 125, 255), anchor="lm")
+d.text(((28 + 44) * SS, (46 + 44) * SS), "N", font=font(56 * SS, True), fill=(255, 255, 255), anchor="mm")
+d.text((140 * SS, 70 * SS), APP_NAME, font=font(30 * SS, True), fill=(30, 30, 30), anchor="lm")
+d.text((140 * SS, 108 * SS), f"載入中…  v{__version__}", font=font(15 * SS), fill=(110, 115, 125), anchor="lm")
 out = ROOT / "assets" / "splash.png"
 img = img.resize((W // SS, H // SS), Image.LANCZOS)
 img.save(out)

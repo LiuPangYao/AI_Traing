@@ -1,4 +1,4 @@
-<!-- version: 1.0.8 -->
+<!-- version: 1.0.9 -->
 **繁體中文** | [English](README.en.md) | [日本語](README.ja.md) | [ไทย](README.th.md) | [हिन्दी](README.hi.md)
 
 # Notion
