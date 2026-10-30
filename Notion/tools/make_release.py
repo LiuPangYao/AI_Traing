@@ -112,6 +112,7 @@ def main() -> int:
     checks = [
         ("單元測試", [sys.executable, "-X", "utf8", "-m", "unittest", "discover", "-s", "tests", "-t", "."]),
         ("翻譯表", [sys.executable, "-X", "utf8", "tools/check_strings.py", "--strict"]),
+        ("色碼都在 theme.py", [sys.executable, "-X", "utf8", "tools/check_colors.py"]),
         ("開視窗走一遍（標記、拖檔、新筆記）", [sys.executable, "-X", "utf8", "tools/stress/ui_checks.py"]),
     ]
     import re

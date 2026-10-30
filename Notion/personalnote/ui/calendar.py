@@ -15,8 +15,7 @@ from ..usage import UsageLog, fmt_duration
 from ..storage import NoteStore
 from . import theme as T
 
-LEVELS_LIGHT = ("#ffffff", "#e4e6fb", "#c3c8f6", "#98a1ee", "#5f6ad9")   # 用 0／<10／<30／<60／≥60 分
-LEVELS_DARK = ("#2a2c33", "#33375a", "#3f4670", "#4d579a", "#8b93ff")
+LEVELS_LIGHT, LEVELS_DARK = T.CAL_LEVELS                              # 色碼只在 theme.py
 
 
 def level(seconds: int) -> int:
@@ -78,8 +77,8 @@ def show(parent, store: NoteStore, usage: UsageLog, on_pick: Callable[[date], No
                 n, s = counts.get(d, 0), secs.get(d, 0)
                 lv = level(s)
                 bg = levels[lv]
-                fg = "#ffffff" if lv >= 3 else text_c
-                sub_fg = "#e8eefc" if lv >= 3 else muted_c
+                fg = T.ON_ACCENT if lv >= 3 else text_c
+                sub_fg = T.CAL_SUB_ON_DARK if lv >= 3 else muted_c
                 cell = tk.Frame(grid, bg=bg, cursor="hand2", highlightthickness=2 if d == today else 0,
                                 highlightbackground=accent, highlightcolor=accent)
                 cell.grid(row=r, column=c, sticky="nsew", padx=2, pady=2)

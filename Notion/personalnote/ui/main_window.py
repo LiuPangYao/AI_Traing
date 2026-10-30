@@ -1365,7 +1365,7 @@ class SettingsPanel(ctk.CTkToplevel):
         """切到某一頁：導覽列那顆亮起，右邊那頁拉到最上面。"""
         for n, b in self._nav_btns.items():
             on = n == name
-            b.configure(fg_color=T.ACCENT if on else "transparent", text_color="#ffffff" if on else T.TEXT,
+            b.configure(fg_color=T.ACCENT if on else "transparent", text_color=T.ON_ACCENT if on else T.TEXT,
                         hover_color=T.ACCENT_HOVER if on else T.ROW_HOVER)
         self._outers[name].tkraise()
         self._current_page = name
@@ -1629,7 +1629,7 @@ class SettingsPanel(ctk.CTkToplevel):
         """點了某個鍵的按鈕：等使用者按下一組鍵（面板接 KeyPress）。"""
         self._cancel_capture()
         self._capturing = action
-        self._key_btns[action].configure(text=_("請按組合鍵…"), fg_color=T.ACCENT, text_color="#ffffff")
+        self._key_btns[action].configure(text=_("請按組合鍵…"), fg_color=T.ACCENT, text_color=T.ON_ACCENT)
         self._key_status.configure(text=_("等你按鍵（Esc 取消）"))
         self.focus_set()
         self._capture_bind = self.bind("<KeyPress>", self._on_capture_key)

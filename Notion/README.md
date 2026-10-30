@@ -129,6 +129,7 @@ python tools/stress/ui_checks.py       # 開真視窗走一遍（放在螢幕外
 build_exe.bat                          # 打包成 dist\Notion.exe（會先跑測試與翻譯表檢查）
 python tools/make_release.py --dest 桌面路徑 [--publish]   # 整理給別人的資料夾並壓 zip；--publish 上傳 GitHub Releases（要裝 gh）
 python tools/check_public_words.py     # 提交前掃不該出現的字眼
+python tools/check_colors.py           # 色碼只准在 ui/theme.py（打包前會自動跑）
 ```
 
 ## 支援的作業系統與授權

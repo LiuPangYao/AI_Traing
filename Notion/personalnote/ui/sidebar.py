@@ -64,7 +64,7 @@ class Sidebar(ctk.CTkFrame):
         self._is_fav = is_fav or (lambda _n: False)   # 這張有沒有星號（主視窗給，查的是它的快取）
         self._on_star = on_star                      # 點星號：加入／取消我的最愛
         self._on_tag = on_tag                        # 點搜尋框下面的 #標籤
-        self._star_fg = "#e5a50a"                    # 星號的顏色（亮暗主題都一樣）
+        self._star_fg = T.STAR                    # 星號的顏色（亮暗主題都一樣）
         self._stars: dict[NoteId, tk.Label] = {}     # 每列的星號（在自己那天的列）
         self._fav_rows: dict[NoteId, tk.Label] = {}  # 「★ 我的最愛」那組裡的副本列（不登記到 _rows：選中、拖拉都只認本尊）
         self.searching = False                   # 主視窗設：目前清單是搜尋結果（過濾過，不給拖拉排序）

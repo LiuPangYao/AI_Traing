@@ -48,11 +48,7 @@ CHECK_TAG = "checkbox"       # 打勾清單行首的 ☐／☑（嵌進去的 wi
 DONE_TAG = "done"            # 打勾完成的那行：劃掉、淡灰
 TAG_TAG = "hashtag"          # #標籤：主色字，Ctrl+點 → 主視窗拿去搜尋
 STYLE_TAGS = {"mark": "mark", "red": "red", "bold": "bold", "italic": "italic"}   # markup.KINDS → tag 名
-MARK_BG = ("#fff1a8", "#5c4f14")
-RED_FG = ("#d13438", "#ff7b72")
-CODE_BG = ("#ecebe6", "#181a1f")        # 指令區塊底色：比內文框明顯深一階（Peter：要像終端機那種感覺）
-CODE_FG = ("#1b2430", "#d7dde6")
-CODE_MUTED = ("#6b7280", "#8b93a1")     # 區塊裡的「指令」標籤、複製按鈕
+MARK_BG, RED_FG, CODE_BG, CODE_FG, CODE_MUTED = T.MARK_BG, T.RED_FG, T.CODE_BG, T.CODE_FG, T.CODE_MUTED   # 色碼只在 theme.py
 WIDGET_TAGS = (ELL_TAG, COPY_TAG, LABEL_TAG, CHECK_TAG)   # 嵌進文字框的小元件：重畫前全部拿掉
 CHECK_GLYPH = {False: "☐", True: "☑"}
 CURSOR_MOVE_MS = 60          # 游標換行後多久重畫（記號要現形）；打字是 HIGHLIGHT_MS
@@ -840,7 +836,7 @@ class Editor(ctk.CTkFrame):
         tip = tk.Toplevel(self)
         tip.wm_overrideredirect(True)
         tip.attributes("-topmost", True)
-        tk.Label(tip, text=text, font=(T.UI_FONT_FAMILY, 10), bg="#333843", fg="#ffffff",
+        tk.Label(tip, text=text, font=(T.UI_FONT_FAMILY, 10), bg=T.TOOLTIP_BG, fg=T.TOOLTIP_FG,
                  padx=8, pady=4, justify="left", wraplength=520).pack()
         tip.geometry(f"+{x}+{y}")
         self._tip, self._tip_target = tip, text
@@ -938,7 +934,7 @@ class Editor(ctk.CTkFrame):
             self._handle.bind("<ButtonPress-1>", self._drag_start)
             self._handle.bind("<B1-Motion>", self._drag_move)
             self._handle.bind("<ButtonRelease-1>", self._drag_end)
-            self._size_lbl = ctk.CTkLabel(tk_text, text="", font=T.ui_font(10), text_color="#ffffff",
+            self._size_lbl = ctk.CTkLabel(tk_text, text="", font=T.ui_font(10), text_color=T.ON_ACCENT,
                                           fg_color=T.ACCENT, corner_radius=4, padx=4)
         self._handle.place(x=x + w - 8, y=y + h - 8)
         self._size_lbl.configure(text=f"{self._image_lines[self._selected_line][1]} px")

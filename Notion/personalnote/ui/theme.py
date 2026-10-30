@@ -25,6 +25,19 @@ BTN_SOFT_HOVER = ("#dbdff7", "#3f4670")
 BTN_SOFT_FG = ("#4149c0", "#aab0ff")
 KEYCAP_BG = ("#efede8", "#3a3d46")   # 快捷鍵表的鍵帽
 KEYCAP_HOVER = ("#e3e0d9", "#464a55")
+# ---- 以下也都在這裡（色碼只准出現在這個檔；tools/check_colors.py 會擋）----
+ON_ACCENT = "#ffffff"                     # 主色底上的字（按鈕、選中的導覽、月曆深格）
+MARK_BG = ("#fff1a8", "#5c4f14")          # ==重點== 的黃底
+RED_FG = ("#d13438", "#ff7b72")           # !!紅字!!
+CODE_BG = ("#ecebe6", "#181a1f")          # 指令區塊底色：比內文框深一階（終端機感）
+CODE_FG = ("#1b2430", "#d7dde6")
+CODE_MUTED = ("#6b7280", "#8b93a1")       # 區塊裡的「指令」標籤、複製按鈕
+TOOLTIP_BG = "#333843"                    # 小提示：深底白字，亮暗主題都一樣
+TOOLTIP_FG = "#ffffff"
+STAR = "#e5a50a"                          # 我的最愛星號（亮暗主題都一樣）
+CAL_LEVELS = (("#ffffff", "#e4e6fb", "#c3c8f6", "#98a1ee", "#5f6ad9"),     # 月曆熱度：0／<10／<30／<60／≥60 分（淺色）
+              ("#2a2c33", "#33375a", "#3f4670", "#4d579a", "#8b93ff"))     # （深色）
+CAL_SUB_ON_DARK = "#e8eefc"               # 月曆深格裡的小字
 
 PAD = 10
 RADIUS = 6                   # 圓角小一點：CTk 畫圓角是用反鋸齒的圓，半徑大四個角看起來糊糊的（Peter 反映）
@@ -126,7 +139,7 @@ def tooltip(widget, text: str, delay_ms: int = 600) -> None:
         w.overrideredirect(True)
         w.attributes("-topmost", True)
         tk.Label(w, text=text() if callable(text) else text,          # 可以給函式：快捷鍵改了提示跟著變
-                 font=(UI_FONT_FAMILY, 10), bg="#333843", fg="#ffffff", padx=8, pady=4).pack()
+                 font=(UI_FONT_FAMILY, 10), bg=TOOLTIP_BG, fg=TOOLTIP_FG, padx=8, pady=4).pack()
         w.geometry(f"+{widget.winfo_rootx()}+{widget.winfo_rooty() + widget.winfo_height() + 4}")
         state["win"] = w
 

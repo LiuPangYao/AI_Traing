@@ -129,6 +129,7 @@ python tools/stress/ui_checks.py       # drives a real window (placed off-screen
 build_exe.bat                          # build dist\Notion.exe (runs tests and the translation check first)
 python tools/make_release.py --dest <folder> [--publish]   # release folder + zip; --publish uploads to GitHub Releases (needs gh)
 python tools/check_public_words.py     # scan for words that must not appear before committing
+python tools/check_colors.py           # colour codes only in ui/theme.py (runs before packaging)
 ```
 
 ## Supported systems and licences
