@@ -55,7 +55,7 @@ def _start_splash_anim() -> None:
             try:
                 if not pyi_splash.is_alive():
                     return
-                pyi_splash.update_text(f"載入中{'.' * (i % 4)}  v{__version__}")
+                pyi_splash.update_text("載入中" + "." * (i % 4))
             except Exception:
                 return
             i += 1

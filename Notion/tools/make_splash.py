@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT))
 from personalnote import APP_NAME, __version__  # noqa: E402
 
 SS = 4                                   # 超取樣：放大 4 倍畫，最後 LANCZOS 縮回 360×180，邊才平滑（Peter：有鋸齒）
-W, H = 360 * SS, 180 * SS
+W, H = 480 * SS, 180 * SS                 # 寬一點：解壓時 PyInstaller 會在文字區跑檔名，太窄會被切（Peter）
 img = Image.new("RGB", (W, H), (255, 255, 255))                 # 整張不透明：PyInstaller 的啟動畫面不支援半透明，圓角外的透明像素會混成粉紅邊（Peter 2026-10-30）
 d = ImageDraw.Draw(img)
 d.rectangle((0, 0, W - 1, H - 1), outline=(200, 204, 212), width=2 * SS)
@@ -30,7 +30,8 @@ def font(size: int, bold: bool = False):
 
 d.text(((28 + 44) * SS, (46 + 44) * SS), "N", font=font(56 * SS, True), fill=(255, 255, 255), anchor="mm")
 d.text((140 * SS, 70 * SS), APP_NAME, font=font(30 * SS, True), fill=(30, 30, 30), anchor="lm")
-# 第二行「載入中…  vX」不畫在圖上：由 PyInstaller 的啟動畫面文字區動態顯示（Notion.spec 的 text_pos；app.py 每 0.3 秒換點點）
+d.text((W - 16 * SS, H - 14 * SS), f"v{__version__}", font=font(12 * SS), fill=(150, 154, 162), anchor="rs")   # 版號固定在右下角
+# 第二行「載入中…」不畫在圖上：由 PyInstaller 的啟動畫面文字區動態顯示（Notion.spec 的 text_pos；app.py 每 0.3 秒換點點）
 out = ROOT / "assets" / "splash.png"
 img = img.resize((W // SS, H // SS), Image.LANCZOS)
 img.save(out)
