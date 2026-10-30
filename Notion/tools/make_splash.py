@@ -30,7 +30,7 @@ def font(size: int, bold: bool = False):
 
 d.text(((28 + 44) * SS, (46 + 44) * SS), "N", font=font(56 * SS, True), fill=(255, 255, 255), anchor="mm")
 d.text((140 * SS, 70 * SS), APP_NAME, font=font(30 * SS, True), fill=(30, 30, 30), anchor="lm")
-d.text((140 * SS, 108 * SS), f"載入中…  v{__version__}", font=font(15 * SS), fill=(110, 115, 125), anchor="lm")
+# 第二行「載入中…  vX」不畫在圖上：由 PyInstaller 的啟動畫面文字區動態顯示（Notion.spec 的 text_pos；app.py 每 0.3 秒換點點）
 out = ROOT / "assets" / "splash.png"
 img = img.resize((W // SS, H // SS), Image.LANCZOS)
 img.save(out)

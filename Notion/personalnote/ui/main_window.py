@@ -582,18 +582,29 @@ class MainWindow(ctk.CTk):
         import time
         box = ctk.CTkFrame(self, corner_radius=T.RADIUS, fg_color=T.SIDEBAR_BG, border_width=1, border_color=T.ACCENT)
         lbl = ctk.CTkLabel(box, text=f"{what}…", font=T.ui_font(13, "bold"), text_color=T.TEXT)
-        lbl.pack(padx=28, pady=16)
+        lbl.pack(padx=28, pady=(16, 8))
+        bar = ctk.CTkProgressBar(box, width=240, height=8, corner_radius=4, progress_color=T.ACCENT)   # 有在動才知道沒卡住（Peter）
+        bar.pack(padx=28, pady=(0, 16))
+        bar.set(0)
         box.place(relx=0.5, rely=0.5, anchor="center")
         self.configure(cursor="watch")
         self.update_idletasks()
         last = [0.0]
+        state = {"indeterminate": False}
 
         def progress(done: int, total: int) -> None:
             now = time.monotonic()
-            if now - last[0] < 0.1:
+            if now - last[0] < 0.05:
                 return
             last[0] = now
-            lbl.configure(text=_("{0}… {1}／{2}").format(what, done, total) if total else f"{what}… {done}")
+            if total:
+                bar.set(min(1.0, done / total))
+                lbl.configure(text=_("{0}… {1}／{2}").format(what, done, total))
+            else:                                   # 總數不知道：進度條來回跑
+                if not state["indeterminate"]:
+                    bar.configure(mode="indeterminate"); state["indeterminate"] = True
+                bar.step()
+                lbl.configure(text=f"{what}… {done}")
             self.update_idletasks()
         try:
             yield progress

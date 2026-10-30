@@ -34,8 +34,39 @@ def _fatal(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
+_splash_stop = None
+
+
+def _start_splash_anim() -> None:
+    """啟動畫面的「載入中」每 0.3 秒換點點（Peter：不然不知道是不是卡了）。用 python 直接跑沒有 pyi_splash，跳過。
+    文字區在 Notion.spec 的 Splash(text_pos=…)；這裡只負責換字。"""
+    global _splash_stop
+    try:
+        import pyi_splash                        # noqa: F401  只有打包後才有
+    except Exception:
+        return
+    import threading
+    _splash_stop = threading.Event()
+    stop = _splash_stop
+
+    def run() -> None:
+        i = 0
+        while not stop.is_set():
+            try:
+                if not pyi_splash.is_alive():
+                    return
+                pyi_splash.update_text(f"載入中{'.' * (i % 4)}  v{__version__}")
+            except Exception:
+                return
+            i += 1
+            stop.wait(0.3)
+    threading.Thread(target=run, daemon=True, name="splash-anim").start()
+
+
 def _close_splash() -> None:
-    """PyInstaller 的啟動畫面（build_exe.bat 的 --splash assets\\splash.png）。用 python 直接跑沒有這個模組，跳過。"""
+    """PyInstaller 的啟動畫面收掉（Notion.spec 的 Splash）。用 python 直接跑沒有這個模組，跳過。"""
+    if _splash_stop is not None:
+        _splash_stop.set()
     try:
         import pyi_splash                        # noqa: F401  只有打包後才有
         pyi_splash.close()
@@ -45,6 +76,7 @@ def _close_splash() -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    _start_splash_anim()                     # 最先做：解壓完一進 Python 就讓「載入中」動起來
     log_path = applog.setup()
     ns, _rest = build_arg_parser().parse_known_args(argv)   # 不能叫 _，會把翻譯函式蓋掉（PM 審查抓到的 P0）
     settings = Settings.load(argv)

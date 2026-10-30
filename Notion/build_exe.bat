@@ -11,10 +11,8 @@ if not exist "%PY%" set PY=python
 "%PY%" -X utf8 tools\make_version_file.py build\version_info.txt || (echo 版本檔產生失敗 & pause & exit /b 1)
 rem 啟動畫面上印著版號，每次打包重畫，才不會跟設定裡的版號對不上
 "%PY%" -X utf8 tools\make_splash.py || (echo 啟動畫面產生失敗 & pause & exit /b 1)
-"%PY%" -m PyInstaller --noconfirm --clean --onefile --windowed ^
-  --name Notion --icon assets\icon.ico --version-file build\version_info.txt --noupx ^
-  --add-data "assets;assets" --collect-data customtkinter --splash assets\splash.png ^
-  run.py
+rem 走 Notion.spec（啟動畫面的文字區只能在 spec 設；onefile、windowed、圖示、版本檔、noupx、assets 都在 spec 裡）
+"%PY%" -m PyInstaller --noconfirm --clean Notion.spec
 if errorlevel 1 (echo 打包失敗 & pause & exit /b 1)
 echo.
 echo 完成：dist\Notion.exe   （記得複製到桌面 Notion 那份）
