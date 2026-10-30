@@ -42,7 +42,8 @@ class Sidebar(ctk.CTkFrame):
                  on_reorder: Optional[Callable[[date, list[int]], None]] = None,
                  on_day_menu: Optional[Callable[[date, int, int], None]] = None,
                  is_fav: Optional[Callable[[NoteId], bool]] = None, on_star: Optional[Callable[[NoteId], None]] = None,
-                 on_tag: Optional[Callable[[str], None]] = None):
+                 on_tag: Optional[Callable[[str], None]] = None,
+                 on_link_drop: Optional[Callable[[NoteId, int, int], bool]] = None):
         """on_add_pick：左下「額外新增」按鈕（主視窗跳月曆選日期再開新筆記）。
         on_day_menu(day, x, y)：日期列按右鍵（主視窗出選單：匯出整天、清整天）。"""
         super().__init__(master, width=T.SIDEBAR_WIDTH, corner_radius=0, fg_color=T.SIDEBAR_BG)
@@ -65,6 +66,7 @@ class Sidebar(ctk.CTkFrame):
         self._is_fav = is_fav or (lambda _n: False)   # 這張有沒有星號（主視窗給，查的是它的快取）
         self._on_star = on_star                      # 點星號：加入／取消我的最愛
         self._on_tag = on_tag                        # 點搜尋框下面的 #標籤
+        self._on_link_drop = on_link_drop            # 長按拖到內文放開：主視窗插 [[標題]]（回 True 表示接走了）
         self._star_fg = T.STAR                    # 星號的顏色（亮暗主題都一樣）
         self._stars: dict[NoteId, tk.Label] = {}     # 每列的星號（在自己那天的列）
         self._fav_rows: dict[NoteId, tk.Label] = {}  # 「★ 我的最愛」那組裡的副本列（不登記到 _rows：選中、拖拉都只認本尊）
@@ -231,7 +233,7 @@ class Sidebar(ctk.CTkFrame):
                 w.grid_configure(row=r)
             self._groups[self._drag["day"]] = self._groups[self._drag["day"]][:5] + new
 
-    def _release(self, _e=None) -> None:
+    def _release(self, e=None) -> None:
         self._cancel_press()
         if self._drag is None:
             return
@@ -239,6 +241,11 @@ class Sidebar(ctk.CTkFrame):
         d["lbl"].configure(cursor="arrow", relief="flat", bd=0)
         for child in d["lbl"].winfo_children():
             child.configure(cursor="hand2")
+        if e is not None and self._on_link_drop is not None and self._on_link_drop(d["nid"], e.x_root, e.y_root):
+            for r, w in enumerate(d["start"], start=1):           # 放到內文去了：左欄順序還原
+                w.grid_configure(row=r)
+            self._groups[d["day"]] = self._groups[d["day"]][:5] + list(d["start"])
+            return
         labels = self._day_labels(d["day"])
         if labels != d["start"] and self._on_reorder is not None:
             seq_of = {w.master: n.seq for n, w in self._rows.items()}   # 列的框 → 編號

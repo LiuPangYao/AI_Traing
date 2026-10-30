@@ -356,3 +356,10 @@ Ctrl+F 搜尋日期或內容,Ctrl+F searches dates and text,Ctrl+F 搜索日期�
 範本 ▾,Template ▾,模板 ▾,テンプレート ▾,personalnote\ui\main_window.py:198
 用範本開一張新筆記（會議紀錄、週報…）,"New note from a template (meeting notes, weekly report…)",用模板开一张新笔记（会议纪要、周报…）,テンプレートから新しいノート（会議メモ、週報…）,personalnote\ui\main_window.py:199
 連到另一張筆記：打 [[ 會列出標題讓你選（↑↓ 選、Enter 填入）；Ctrl+點跳過去，「返回」回來,"Link to another note: typing [[ lists titles to pick from (↑↓ to choose, Enter to insert); Ctrl+click to jump, “Back” to return",链接到另一张笔记：打 [[ 会列出标题让你选（↑↓ 选、Enter 填入）；Ctrl+点跳过去，“返回”回来,別のノートへのリンク：[[ と打つとタイトル一覧から選べます（↑↓ で選択、Enter で入力）。Ctrl+クリックで移動、「戻る」で戻る,keys.GESTURES
+連到這張的：,Linked from:,链接到这张的：,このノートへのリンク：,personalnote\ui\editor.py:371
+…還有 {0} 張,… and {0} more,…还有 {0} 张,…ほか {0} 枚,personalnote\ui\editor.py:378
+標題改了，已更新 {0} 張筆記裡的 [[連結]],Title changed; updated the [[links]] in {0} notes,标题改了，已更新 {0} 张笔记里的 [[链接]],タイトル変更に合わせて {0} 枚のノートの [[リンク]] を更新しました,personalnote\ui\main_window.py:374
+已插入 {0},Inserted {0},已插入 {0},{0} を挿入しました,personalnote\ui\main_window.py:994
+連到那一天；內文下面會列「連到這張的」反向連結；改標題會自動更新別張的 [[連結]],Links to that day; the “Linked from” row under the text lists backlinks; renaming a title updates [[links]] in other notes,链接到那一天；正文下面会列“链接到这张的”反向链接；改标题会自动更新别张的 [[链接]],その日へのリンク。本文の下に「このノートへのリンク」（バックリンク）が並びます。タイトルを変えると他のノートの [[リンク]] も更新,keys.GESTURES
+左欄筆記長按拖進內文,Long-press a note in the side panel and drag it into the text,左栏笔记长按拖进正文,サイドパネルのノートを長押しして本文へドラッグ,keys.GESTURES
+在落點插一個 [[標題]] 連結,Inserts a [[title]] link where you drop it,在落点插一个 [[标题]] 链接,ドロップした位置に [[タイトル]] リンクを挿入,keys.GESTURES

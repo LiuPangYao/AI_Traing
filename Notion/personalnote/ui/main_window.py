@@ -101,7 +101,8 @@ class MainWindow(ctk.CTk):
                                on_search=self._on_search, on_note_menu=self.note_menu,
                                on_add_pick=self.new_note_pick, on_reorder=self.reorder_day,
                                on_day_menu=self.day_menu,
-                               is_fav=lambda n: n in self._fav_cache, on_star=self.toggle_favorite, on_tag=self.search_tag)
+                               is_fav=lambda n: n in self._fav_cache, on_star=self.toggle_favorite, on_tag=self.search_tag,
+                               on_link_drop=self._drop_note_link)
         self.sidebar.grid(**sb_pos)
         if side == "bottom":
             self.sidebar.set_height(self.state_.sidebar_height)
@@ -322,6 +323,7 @@ class MainWindow(ctk.CTk):
         applog.info("開啟 %s-%03d 可讀=%s 長度=%d", nid.day, nid.seq, ok, len(text))
         if pulse:
             self.after(0, lambda: self.sidebar.pulse(nid))     # 左欄畫好之後再閃（anim.APPEAR）
+        self._refresh_backlinks()
         self._refresh_day_label()
         if self.sidebar.has(nid):
             self.sidebar.set_selected(nid)            # 已經在左欄：只換選取，不整欄重畫
@@ -357,12 +359,22 @@ class MainWindow(ctk.CTk):
         if self.current is None:
             return
         is_new = not self.store.path_for(self.current).is_file()   # 第一次存：左欄還沒有它，存完要整欄重畫
+        old_title = "" if is_new else title_of(self.store.try_load(self.current)[0])   # 標題改了要把別張的 [[舊標題]] 跟著改
         try:
             self.store.snapshot(self.current, text)  # 存之前留一份版本（內容有變才留）
         except Exception:
             applog.exception("快照失敗（不影響存檔）")   # history 寫不進去不能擋正式存檔
         self.store.save(self.current, text)
         applog.info("存檔 %s-%03d 長度=%d", self.current.day, self.current.seq, len(text))
+        new_title = title_of(text)
+        if old_title and new_title and old_title != new_title:
+            try:
+                n = self.store.rename_links(old_title, new_title, exclude=self.current)
+                if n:
+                    self.editor._set_status(_("標題改了，已更新 {0} 張筆記裡的 [[連結]]").format(n), fade=True)
+                    applog.info("改標題 %s → %s：更新 %d 張的連結", old_title, new_title, n)
+            except Exception:
+                applog.exception("更新連結失敗")
         # 左欄：這張已經在清單裡就只改它的字（每 1.2 秒重畫整欄太重）；是新的一張才整欄重畫。
         # 檔案到這裡已經存好了，左欄畫壞不能算存檔失敗（不然編輯器每 1.2 秒重試一次，愈試愈慢）
         try:
@@ -949,12 +961,38 @@ class MainWindow(ctk.CTk):
 
     # ---- 筆記之間跳來跳去 ----
     def jump_to_note(self, ref: str) -> None:
-        """[[標題]] 或 [[2026-10-29/003]]：找到就開（open_note 會把現在這張記進「返回」）。"""
+        """[[標題]]、[[2026-10-29/003]] 或 [[2026-10-29]]（那一天）：找到就開（open_note 會把現在這張記進「返回」）。"""
+        try:
+            d = date.fromisoformat(ref.strip())
+        except ValueError:
+            d = None
+        if d is not None:
+            self.go_day(d, pulse=True)
+            return
         nid = self.store.find_note(ref)
         if nid is None:
             self.editor._set_status(_("找不到筆記「{0}」").format(ref), fade=True)
             return
         self.open_note(nid, pulse=True)
+
+    def _refresh_backlinks(self) -> None:
+        """內文下面那排「連到這張的」。"""
+        if self.current is None:
+            return
+        refs = self.store.backlinks(self.current)
+        self.editor.set_backlinks([(r.id, r.title) for r in refs], on_open=lambda n: self.open_note(n, pulse=True))
+
+    def _drop_note_link(self, nid: NoteId, x_root: int, y_root: int) -> bool:
+        """左欄筆記長按拖到內文放開：在落點插一個 [[標題]]。不在內文框上就回 False（左欄當一般拖拉）。"""
+        if nid == self.current:
+            return False
+        ref = next((r for r in self.store.list_notes(nid.day) if r.id == nid), None)
+        title = (ref.title if ref else "").strip()
+        link = f"[[{title}]]" if title and not title.startswith("（") else f"[[{nid.day.isoformat()}/{nid.seq:03d}]]"
+        ok = self.editor.insert_at_pointer(link + " ", x_root, y_root)
+        if ok:
+            self.editor._set_status(_("已插入 {0}").format(link), fade=True)
+        return ok
 
     def go_back(self) -> None:
         """回上一張看過的筆記（連結跳過去、月曆點日期之後用）。"""

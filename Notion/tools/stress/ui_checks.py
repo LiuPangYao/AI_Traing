@@ -12,6 +12,7 @@ os.environ["NOTE_ANIM"] = "0"           # 動畫立刻完成，檢查才不用�
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from PIL import Image                                              # noqa: E402
+import tkinter as tk
 from tkinter import messagebox                                     # noqa: E402
 from personalnote import dropfiles                                 # noqa: E402
 from personalnote.config import Settings                           # noqa: E402
@@ -362,6 +363,21 @@ class _E: y = 2
 lb = win.editor._ac["list"]; first = win.editor._ac["items"][0]
 lb.event_generate("<Button-1>", x=5, y=2); win.update()
 check(win.editor._ac is None and t.get("2.0", "2.end").endswith("[[" + first + "]]"), "滑鼠點清單也會填入")
+# 反向連結、[[日期]]、拖進內文、改標題更新連結
+win.open_note(NoteId(today, 2)); win.update()
+back = [w.cget("text") for w in win.editor._back.winfo_children() if isinstance(w, tk.Label)]
+check(win.editor._back.winfo_ismapped() and "會議" in back, "想法那張下面列出「連到這張的：會議」")
+next(w for w in win.editor._back.winfo_children() if isinstance(w, tk.Label) and w.cget("text") == "會議").event_generate("<Button-1>"); win.update()
+check(win.current == nid_a, "點反向連結開那張")
+win.jump_to_note(yd.isoformat()); win.update()
+check(win.current_day == yd, "[[日期]] 跳到那一天")
+win.open_note(nid_a); win.update()
+tx = win.editor.text._textbox; bb = tx.bbox("1.0")
+check(win._drop_note_link(NoteId(today, 2), tx.winfo_rootx() + bb[0] + 2, tx.winfo_rooty() + bb[1] + 2) and tx.get("1.0", "1.end").startswith("[[想法]] "), "拖筆記放進內文：插入 [[想法]]")
+check(win._drop_note_link(NoteId(today, 2), 0, 0) is False, "放在內文以外：不插")
+win.open_note(NoteId(today, 2)); win.update()
+win._save_current("# 想法2\n內容\n"); win.update()
+check("[[想法2]]" in st.try_load(nid_a)[0] and "[[想法]]" not in st.try_load(nid_a)[0], "改標題後別張的 [[想法]] 自動變 [[想法2]]")
 from personalnote.ui import datepick as _dp
 from tkinter import filedialog
 picks = iter([yd, today]); _dp.ask_date = lambda *a, **k: next(picks)

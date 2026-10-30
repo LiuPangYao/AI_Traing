@@ -271,7 +271,10 @@ class Editor(ctk.CTkFrame):
         self.title._entry.bind("<Button-3>", lambda e: self._context_menu(e, self.title._entry, is_body=False))
 
         foot = ctk.CTkFrame(self, fg_color="transparent")
-        foot.grid(row=3, column=0, sticky="ew", pady=(6, 0))            # 貼近視窗底邊一點（Peter 要的）
+        self._back = ctk.CTkFrame(self, fg_color="transparent")          # 反向連結：哪些筆記連到這張（set_backlinks）
+        self._back.grid(row=3, column=0, sticky="ew", pady=(4, 0))
+        self._back.grid_remove()
+        foot.grid(row=4, column=0, sticky="ew", pady=(6, 0))            # 貼近視窗底邊一點（Peter 要的）
         foot.grid_columnconfigure(1, weight=1)
         self.counter = ctk.CTkLabel(foot, text="", font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="w")
         self.counter.grid(row=0, column=0, sticky="w")                  # 左：N 行 · N 字（打字停 0.3 秒更新）
@@ -354,6 +357,40 @@ class Editor(ctk.CTkFrame):
                 platform_.set_ime_font(widget, f.actual("family"), px)
             except Exception:
                 pass
+
+    # ---- 反向連結、拖放插連結 ----
+    def set_backlinks(self, items, on_open) -> None:
+        """內文下面一排：「連到這張的：A · B」，點了開那張。沒有就整排收起。items＝[(NoteId, 標題)]。"""
+        for w in self._back.winfo_children():
+            w.destroy()
+        if not items:
+            self._back.grid_remove()
+            return
+        self._back.grid()
+        dark = self._dark()
+        ctk.CTkLabel(self._back, text=_("連到這張的："), font=T.ui_font(11), text_color=T.TEXT_MUTED).pack(side="left", padx=(6, 2))
+        for i, (nid, title) in enumerate(items[:8]):
+            lbl = tk.Label(self._back, text=title or f"{nid.day.isoformat()}/{nid.seq:03d}", bg=T.MAIN_BG[1] if dark else T.MAIN_BG[0],
+                           fg=T.LINK_COLOR[1] if dark else T.LINK_COLOR[0], font=(T.UI_FONT_FAMILY, 11, "underline"), cursor="hand2", padx=4)
+            lbl.pack(side="left")
+            lbl.bind("<Button-1>", lambda _e, n=nid: on_open(n))
+        if len(items) > 8:
+            ctk.CTkLabel(self._back, text=_("…還有 {0} 張").format(len(items) - 8), font=T.ui_font(11), text_color=T.TEXT_MUTED).pack(side="left")
+
+    def insert_at_pointer(self, text: str, x_root: int, y_root: int) -> bool:
+        """拖東西放進內文：落點在內文框裡就插在那個位置，回 True。"""
+        tk_text = self.text._textbox
+        try:
+            w = self.winfo_containing(x_root, y_root)
+        except Exception:
+            w = None
+        if w is not tk_text or self.read_only:
+            return False
+        idx = tk_text.index(f"@{x_root - tk_text.winfo_rootx()},{y_root - tk_text.winfo_rooty()}")
+        tk_text.insert(idx, text)
+        tk_text.mark_set("insert", f"{idx}+{len(text)}c")
+        self._mark_dirty()
+        return True
 
     # ---- [[ 自動完成 ----
     AC_MAX = 8

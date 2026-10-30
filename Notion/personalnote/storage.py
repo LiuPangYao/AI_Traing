@@ -614,6 +614,48 @@ class NoteStore:
                     return out
         return out
 
+    def _link_forms(self, nid: NoteId) -> set[str]:
+        """這張筆記會被哪些 [[…]] 寫法指到（小寫）：標題、日期/編號、日期-編號。"""
+        ref = next((r for r in self.list_notes(nid.day) if r.id == nid), None)
+        forms = {f"{nid.day.isoformat()}/{nid.seq:03d}", f"{nid.day.isoformat()}/{nid.seq}",
+                 f"{nid.day.isoformat()}-{nid.seq:03d}", f"{nid.day.isoformat()}-{nid.seq}"}
+        if ref is not None and ref.title.strip() and not ref.title.startswith("（"):
+            forms.add(ref.title.strip().lower())
+        return forms
+
+    def backlinks(self, nid: NoteId) -> list[NoteRef]:
+        """哪些筆記裡有 [[…]] 指到這張（反向連結），新的日期在前。"""
+        from .links import NOTE_RE
+        forms = self._link_forms(nid)
+        out = []
+        for d in self.list_days():
+            for r in self.list_notes(d):
+                if r.id == nid:
+                    continue
+                text, ok = self.try_load(r.id)
+                if not ok or "[[" not in text:
+                    continue
+                if any(m.group(1).strip().lower() in forms for m in NOTE_RE.finditer(text)):
+                    out.append(r)
+        return out
+
+    def rename_links(self, old_title: str, new_title: str, exclude: Optional[NoteId] = None) -> int:
+        """標題改了：把所有筆記裡的 [[舊標題]] 改成 [[新標題]]。回改了幾張。"""
+        old_title, new_title = old_title.strip(), new_title.strip()
+        if not old_title or not new_title or old_title == new_title or new_title.startswith("（"):
+            return 0
+        needle, repl = f"[[{old_title}]]", f"[[{new_title}]]"
+        n = 0
+        for d in self.list_days():
+            for r in self.list_notes(d):
+                if r.id == exclude:
+                    continue
+                text, ok = self.try_load(r.id)
+                if ok and needle in text:
+                    self.save(r.id, text.replace(needle, repl))
+                    n += 1
+        return n
+
     def find_note(self, ref: str) -> Optional[NoteId]:
         """[[…]] 連結的目標：「2026-10-29/003」或「2026-10-29-003」是編號；其餘當標題找（不分大小寫，新的日期優先）。"""
         s = str(ref).strip()
