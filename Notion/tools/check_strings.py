@@ -51,10 +51,13 @@ def source_keys() -> dict[str, str]:
         keys.setdefault(v, "SettingsPanel._THEME_KEYS")
     for v in SettingsPanel._SIDE_KEYS.values():
         keys.setdefault(v, "SettingsPanel._SIDE_KEYS")
+    for name in SettingsPanel.TABS:
+        keys.setdefault(name, "SettingsPanel.TABS")
     from personalnote.ui.main_window import TourDialog
-    for t, b in TourDialog.PAGES:
+    for _g, t, bullets in TourDialog.PAGES:
         keys.setdefault(t, "TourDialog.PAGES")
-        keys.setdefault(b, "TourDialog.PAGES")
+        for b in bullets:
+            keys.setdefault(b, "TourDialog.PAGES")
     from personalnote import keys as keys_mod
     for _a, _k, desc in keys_mod.ACTIONS:
         keys.setdefault(desc, "keys.ACTIONS")

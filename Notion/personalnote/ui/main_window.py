@@ -1070,15 +1070,26 @@ class UpdatePrompt(ctk.CTkToplevel):
 
 
 class TourDialog(ctk.CTkToplevel):
-    """第一次開程式的使用教學：幾頁、看一次就好（state.json 的 tour_done）；設定 → 更新 裡可以再看。
-    頁面文字顯示時才 _()，tools/check_strings.py 會把 PAGES 列進翻譯表。"""
+    """第一次開程式的使用教學：五頁、看一次就好（state.json 的 tour_done）；設定 → 更新 裡可以再看。
+    一頁＝左邊一個大圖示、右邊標題加三句重點、底下進度點（Peter 2026-10-30：一段字很呆板）。
+    文字顯示時才 _()，tools/check_strings.py 會把 PAGES 列進翻譯表。"""
 
     PAGES = (
-        ("歡迎使用 {0}", "筆記照日期放在左欄，一天可以很多張。按上面的「＋ 新筆記」（或 Ctrl+N）在今天加一張，第一行就是標題。停下來 1 秒多就自動存，不用按儲存。"),
-        ("記號會自動上色", "==重點==、!!紅字!!、**粗體**、*斜體*，三個反引號包起來是指令區塊（右上角可一鍵複製）。選好字再按格式列的按鈕也行；游標離開那行，記號就會藏起來。"),
-        ("圖與檔案", "Ctrl+V 直接貼截圖，角落把手可以拉大小。.md／.txt 拖進視窗就變成今天的筆記；其他檔用 📎 放附件連結，Ctrl+點連結會打開。"),
-        ("找與整理", "Ctrl+F 搜尋日期或內容；標題前的 ☆ 點一下加入「我的最愛」；行首打 - [ ] 就是打勾清單。左欄筆記、日期標題、內文都有右鍵選單。"),
-        ("設定在右上角 ⚙", "語言、字體、左欄放哪邊、快捷鍵（可以自己改）、更新提醒都在那裡。這個教學在 設定 → 更新 可以再看一次。"),
+        ("✎", "歡迎使用 {0}", ("筆記照日期放在左欄，一天可以很多張",
+                               "「＋ 新筆記」或 Ctrl+N 在今天加一張，第一行就是標題",
+                               "停下來 1 秒多就自動存，不用按儲存")),
+        ("✦", "記號會自動上色", ("==重點==、!!紅字!!、**粗體**、*斜體*",
+                                 "三個反引號包起來是指令區塊，右上角可一鍵複製",
+                                 "游標離開那行，記號就藏起來；格式列的按鈕也能加")),
+        ("▣", "圖與檔案", ("Ctrl+V 直接貼截圖，角落把手可以拉大小",
+                           ".md／.txt 拖進視窗就變成今天的筆記",
+                           "其他檔用 📎 放附件連結，Ctrl+點連結會打開")),
+        ("☆", "找與整理", ("Ctrl+F 搜尋日期或內容",
+                           "標題前的 ☆ 點一下加入「我的最愛」",
+                           "行首打 - [ ] 就是打勾清單；左欄、日期、內文都有右鍵選單")),
+        ("⚙", "設定在右上角", ("語言、字體、左欄放哪邊、快捷鍵（可以自己改）",
+                               "更新：有新版會提醒，可以關掉",
+                               "這個教學在 設定 → 更新 可以再看一次")),
     )
 
     def __init__(self, win: MainWindow):
@@ -1088,29 +1099,41 @@ class TourDialog(ctk.CTkToplevel):
         self.title(_("使用教學"))
         self.attributes("-topmost", True)
         _quiet_dialog(self)
-        self._title = ctk.CTkLabel(self, text="", font=T.ui_font(15, "bold"), anchor="w")
-        self._title.pack(fill="x", padx=22, pady=(18, 6))
-        self._body = ctk.CTkLabel(self, text="", font=T.ui_font(12), wraplength=420, justify="left", anchor="nw")
-        self._body.pack(fill="both", expand=True, padx=22, pady=(0, 10))
-        row = ctk.CTkFrame(self, fg_color="transparent")
-        row.pack(fill="x", padx=16, pady=(0, 14))
-        self._pos = ctk.CTkLabel(row, text="", font=T.ui_font(11), text_color=T.TEXT_MUTED)
-        self._pos.pack(side="left", padx=(6, 0))
-        self._next_btn = ctk.CTkButton(row, text="", font=T.ui_font(12), width=96, fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
+        card = ctk.CTkFrame(self, fg_color="transparent")
+        card.pack(fill="both", expand=True, padx=20, pady=(18, 6))
+        card.grid_columnconfigure(1, weight=1)
+        card.grid_rowconfigure(1, weight=1)
+        self._glyph = ctk.CTkLabel(card, text="", font=ctk.CTkFont(family=T.UI_FONT_FAMILY, size=46), text_color=T.ACCENT, width=72)
+        self._glyph.grid(row=0, column=0, rowspan=2, sticky="n", padx=(0, 18))
+        self._title = ctk.CTkLabel(card, text="", font=T.ui_font(16, "bold"), anchor="w")
+        self._title.grid(row=0, column=1, sticky="w")
+        self._lines = ctk.CTkFrame(card, fg_color="transparent")
+        self._lines.grid(row=1, column=1, sticky="nsew", pady=(8, 0))
+        bottom = ctk.CTkFrame(self, fg_color="transparent")
+        bottom.pack(fill="x", padx=20, pady=(0, 16))
+        self._dots = ctk.CTkLabel(bottom, text="", font=T.ui_font(14), text_color=T.ACCENT)
+        self._dots.pack(side="left")
+        self._next_btn = ctk.CTkButton(bottom, text="", font=T.ui_font(12), width=96, fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
                                        command=self._next)
         self._next_btn.pack(side="right", padx=(8, 0))
-        ctk.CTkButton(row, text=_("跳過"), font=T.ui_font(12), width=70, fg_color="transparent", text_color=T.TEXT_MUTED,
+        ctk.CTkButton(bottom, text=_("跳過"), font=T.ui_font(12), width=70, fg_color="transparent", text_color=T.TEXT_MUTED,
                       hover_color=T.ROW_HOVER, command=self._finish).pack(side="right")
         self.protocol("WM_DELETE_WINDOW", self._finish)
         self._render()
-        T.center_over(self, win, 480, 300)
+        T.center_over(self, win, 540, 290)
 
     def _render(self) -> None:
-        t, b = self.PAGES[self._page]
-        self._title.configure(text=_(t).format(APP_NAME))
-        self._body.configure(text=_(b))
-        self._pos.configure(text=f"{self._page + 1} / {len(self.PAGES)}")
-        self._next_btn.configure(text=_("完成") if self._page == len(self.PAGES) - 1 else _("下一步"))
+        glyph, title, bullets = self.PAGES[self._page]
+        self._glyph.configure(text=glyph)
+        self._title.configure(text=_(title).format(APP_NAME))
+        for w in self._lines.winfo_children():
+            w.destroy()
+        for b in bullets:
+            ctk.CTkLabel(self._lines, text="•  " + _(b), font=T.ui_font(12), anchor="w", justify="left", wraplength=400).pack(
+                fill="x", anchor="w", pady=2)
+        n = len(self.PAGES)
+        self._dots.configure(text="  ".join("●" if i == self._page else "○" for i in range(n)))
+        self._next_btn.configure(text=_("完成") if self._page == n - 1 else _("下一步"))
 
     def _next(self) -> None:
         if self._page >= len(self.PAGES) - 1:
@@ -1139,24 +1162,48 @@ class SettingsPanel(ctk.CTkToplevel):
     def THEME_LABELS(self) -> dict:
         return {k: _(v) for k, v in self._THEME_KEYS.items()}       # 開面板時才翻，換語言後才會是新的
 
+    TABS = ("外觀", "存檔", "快捷鍵", "更新", "紀錄")      # 分頁名（顯示時 _()；check_strings 會列進翻譯表）
+
     def __init__(self, win: MainWindow):
         super().__init__(win)
         self.win = win
         self.title(_("設定"))
         self.attributes("-topmost", True)
         _quiet_dialog(self)                          # 不閃：見 _quiet_dialog 的說明
-        # 內容放在可捲動的框裡：螢幕矮（筆電 768）時面板比螢幕高，不捲就看不到底下的按鈕
-        self.body = ctk.CTkScrollableFrame(self, width=560, fg_color="transparent")   # 英文字串比中文長，430 會切到按鈕
-        self.body.pack(fill="both", expand=True)
-        self.body.grid_columnconfigure(1, weight=1)
-        pad = dict(padx=16, pady=6)
+        self._capturing = None
+        self._key_btns: dict = {}
+        # 分頁（Peter 2026-10-30：一長頁很呆板）：每頁一個主題，不用捲；快捷鍵表放自己那頁，點了才看到
+        self.tabs = ctk.CTkTabview(self, width=620, height=470, corner_radius=T.RADIUS,
+                                   segmented_button_selected_color=T.ACCENT, segmented_button_selected_hover_color=T.ACCENT_HOVER)
+        self.tabs.pack(fill="both", expand=True, padx=10, pady=(4, 10))
+        self._pages = {}
+        self._tab_titles = {}                        # 內部名 → 顯示名（切分頁用：tabs.set(顯示名)）
+        for name in self.TABS:
+            frame = self.tabs.add(_(name))
+            frame.grid_columnconfigure(1, weight=1)
+            self._pages[name] = frame
+            self._tab_titles[name] = _(name)
+        self._build_appearance(win)
+        self._build_files(win)
+        self._build_keys_page()
+        self._build_update(win)
+        self._build_logs(win)
+        self.update_idletasks()
+        T.center_over(self, win)                 # 全部排好才知道面板多大，最後再放到主視窗正中央
+
+    def _page(self, name: str) -> None:
+        """之後的 _section／_row／_full 都放到這一頁。"""
+        self.body = self._pages[name]
         self._r = 0
 
+    # ---- 外觀 ----
+    def _build_appearance(self, win: MainWindow) -> None:
+        self._page("外觀")
         locked = [k for k in ("NOTE_THEME", "NOTE_FONT", "NOTE_FONT_SIZE", "NOTE_TOPMOST", "NOTE_ENCRYPT", "NOTE_LANG", "NOTE_DIR")
                   if os.environ.get(k, "").strip()]
         if locked:                                   # Notion.bat 有填值：那幾項這裡改了下次用 bat 開會被蓋回去
             ctk.CTkLabel(self.body, text=_("Notion.bat 裡有填：") + "、".join(locked) + _("。這幾項以 .bat 為準，這裡改了下次用 .bat 開會被蓋回去；要在這裡改就把 .bat 裡那行留空。"),
-                         font=T.ui_font(11), text_color=T.DANGER, wraplength=520, justify="left").grid(
+                         font=T.ui_font(11), text_color=T.DANGER, wraplength=540, justify="left").grid(
                 row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=(10, 0)); self._r += 1
 
         self._section(_("外觀"))
@@ -1192,6 +1239,15 @@ class SettingsPanel(ctk.CTkToplevel):
         top.select() if win.settings.topmost else top.deselect()
         self._full(top)
 
+    # ---- 存檔 ----
+    def _build_files(self, win: MainWindow) -> None:
+        self._page("存檔")
+        self._section(_("你的資料與隱私"))
+        for line in (_("筆記只存在這台電腦的資料夾裡，不經過任何雲端、不用帳號，程式也不收集任何東西。"),
+                     _("唯一會連網的是「更新」分頁：啟動時讀一次 GitHub 上的版本號（可以關掉）。")):
+            ctk.CTkLabel(self.body, text="•  " + line, font=T.ui_font(11), text_color=T.TEXT_MUTED, wraplength=540,
+                         justify="left", anchor="w").grid(row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=1); self._r += 1
+
         self._section(_("啟動與安全"))
         if platform_.AUTOSTART_SUPPORTED:        # Linux：程式幫你寫 autostart
             self.startup_sw = ctk.CTkSwitch(self.body, text=_("開機自動啟動"), font=T.ui_font(12), command=self._toggle_startup)
@@ -1211,6 +1267,9 @@ class SettingsPanel(ctk.CTkToplevel):
                                     font=T.ui_font(12), command=self._toggle_encrypt)
         self.enc_sw.select() if win.store.encrypt else self.enc_sw.deselect()
         self._full(self.enc_sw)
+        ctk.CTkLabel(self.body, text=_("加密＝用你登入的這個 Windows 帳號把檔案鎖住（DPAPI）：別人拷走檔案打不開，換帳號或換電腦也打不開，所以換電腦前先「匯出全部」成純文字。關掉加密就是普通的 .md 文字檔。"),
+                     font=T.ui_font(11), text_color=T.TEXT_MUTED, wraplength=540, justify="left", anchor="w").grid(
+            row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=(0, 4)); self._r += 1
         from .. import crypto
         if not crypto.available():          # Linux／mac：DPAPI 沒有，筆記是純文字
             self.enc_sw.deselect(); self.enc_sw.configure(state="disabled")
@@ -1219,7 +1278,7 @@ class SettingsPanel(ctk.CTkToplevel):
 
         self._section(_("存檔位置"))
         self.dir_lbl = ctk.CTkLabel(self.body, text=str(win.store.root), font=T.ui_font(11),
-                                    text_color=T.TEXT_MUTED, wraplength=520, justify="left", anchor="w")
+                                    text_color=T.TEXT_MUTED, wraplength=540, justify="left", anchor="w")
         self._full(self.dir_lbl, pady=(0, 2))
         btns = ctk.CTkFrame(self.body, fg_color="transparent")
         ctk.CTkButton(btns, text=_("開啟資料夾"), font=T.ui_font(12), width=96,
@@ -1241,17 +1300,22 @@ class SettingsPanel(ctk.CTkToplevel):
                           border_width=1, text_color=T.TEXT, command=cmd).pack(side="left", padx=(0, 6))
         self._full(io_row)
         ctk.CTkLabel(self.body, text=_("匯入的筆記接在那一天後面編號，不會蓋掉既有的；換電腦前先「匯出全部」。"),
-                     font=T.ui_font(11), text_color=T.TEXT_MUTED, wraplength=520, justify="left").grid(
+                     font=T.ui_font(11), text_color=T.TEXT_MUTED, wraplength=540, justify="left").grid(
             row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=(0, 4)); self._r += 1
 
-        self._keys_box = None                       # 快捷鍵表預設收起（太長），點標題展開；展開後可以改鍵
-        self._capturing = None
-        self._key_btns: dict = {}
-        self._keys_btn = ctk.CTkButton(self.body, text=self._keys_title(False), font=T.ui_font(12, "bold"), anchor="w",
-                                       fg_color="transparent", hover_color=T.ROW_HOVER, text_color=T.TEXT, command=self._toggle_keys)
-        self._keys_btn.grid(row=self._r, column=0, columnspan=2, sticky="w", padx=10, pady=(12, 2)); self._r += 1
-        self._keys_row = self._r; self._r += 1      # 展開時表格放這一列
+    # ---- 快捷鍵（自己一頁；表太長所以放捲動框）----
+    def _build_keys_page(self) -> None:
+        page = self._pages["快捷鍵"]
+        page.grid_rowconfigure(0, weight=1)
+        page.grid_columnconfigure(0, weight=1)
+        self.body = ctk.CTkScrollableFrame(page, fg_color="transparent")
+        self.body.grid(row=0, column=0, sticky="nsew")
+        self._r = 0
+        self._build_keys_table().grid(row=0, column=0, sticky="ew", padx=8, pady=(6, 4))
 
+    # ---- 更新 ----
+    def _build_update(self, win: MainWindow) -> None:
+        self._page("更新")
         self._section(_("更新"))
         upd_row = ctk.CTkFrame(self.body, fg_color="transparent")
         self._update_lbl = ctk.CTkLabel(upd_row, text="", font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="w",
@@ -1267,13 +1331,32 @@ class SettingsPanel(ctk.CTkToplevel):
                                         command=lambda: win.set_update_notify(bool(self._notify_sw.get())))
         (self._notify_sw.select if win.settings.update_notify else self._notify_sw.deselect)()
         self._full(self._notify_sw)
+        for line in (_("① 程式開啟幾秒後讀一次 GitHub 上的版本號（只讀，不傳任何東西出去）"),
+                     _("② 比你的新就跳提醒；或在這裡按「重新檢查」"),
+                     _("③ 按「下載新版」開瀏覽器拿 zip"),
+                     _("④ 關掉 Notion，把 zip 裡的 Notion.exe 蓋掉原本的，再開"),
+                     _("筆記和設定都在資料夾裡，換 exe 不會動到。")):
+            ctk.CTkLabel(self.body, text=line, font=T.ui_font(11), text_color=T.TEXT_MUTED, wraplength=540,
+                         justify="left", anchor="w").grid(row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=1); self._r += 1
+
+        self._section(_("說明"))
         ctk.CTkButton(self.body, text=_("再看一次使用教學"), font=T.ui_font(11), width=140, height=24, fg_color="transparent",
                       border_width=1, text_color=T.TEXT, command=win.show_tour).grid(
             row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=(2, 4)); self._r += 1
+
+        self._section(_("關於"))
+        import sys as _sys
+        about = _("{0} {1}\n用 Python {2} 寫的（畫面：tkinter ＋ customtkinter；打包：PyInstaller）\n開發：{3}").format(
+            APP_NAME, __version__, f"{_sys.version_info.major}.{_sys.version_info.minor}", AUTHOR)
+        ctk.CTkLabel(self.body, text=about, font=T.ui_font(11), text_color=T.TEXT_MUTED, justify="left", anchor="w").grid(
+            row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=(0, 8)); self._r += 1
         self.refresh_update()
         if win._update["status"] == "idle":
             win.start_update_check()
 
+    # ---- 紀錄 ----
+    def _build_logs(self, win: MainWindow) -> None:
+        self._page("紀錄")
         self._section(_("紀錄與當機檔（回報問題時把這些一起給）"))
         log_dir = applog.log_dir()
         rescue_dir = log_dir.parent / "rescue"
@@ -1288,13 +1371,6 @@ class SettingsPanel(ctk.CTkToplevel):
                           command=lambda d=where: platform_.open_folder(d)).pack(side="right", padx=(8, 0))
             self._full(row, pady=2)
             row.grid_configure(sticky="ew")
-
-        ctk.CTkLabel(self.body, text=_("{0} {1}   開發：{2}").format(APP_NAME, __version__, AUTHOR), font=T.ui_font(11),
-                     text_color=T.TEXT_MUTED).grid(row=self._r, column=0, columnspan=2, sticky="e", padx=16, pady=(8, 12))
-        self.update_idletasks()
-        inner = self.body.winfo_reqheight()          # 內容實際要的高度（body 是放內容的那個框）
-        self.body.configure(height=min(inner, self.winfo_screenheight() - 140))   # 放得下就不出現捲軸
-        T.center_over(self, win)                 # 全部排好才知道面板多大，最後再放到主視窗正中央
 
     # ---- 更新 ----
     def refresh_update(self) -> None:
@@ -1324,20 +1400,7 @@ class SettingsPanel(ctk.CTkToplevel):
         if info is not None:
             platform_.open_path(info.url)
 
-    # ---- 快捷鍵（預設收起；點開可以看、可以改）----
-    def _keys_title(self, opened: bool) -> str:
-        return ("▾ " if opened else "▸ ") + _("快捷鍵（點開可以看、可以改）")
-
-    def _toggle_keys(self) -> None:
-        if self._keys_box is not None and self._keys_box.winfo_exists():
-            self._cancel_capture()
-            self._keys_box.destroy(); self._keys_box = None
-            self._keys_btn.configure(text=self._keys_title(False))
-            return
-        self._keys_box = self._build_keys_table()
-        self._keys_box.grid(row=self._keys_row, column=0, columnspan=2, sticky="ew", padx=16, pady=(0, 4))
-        self._keys_btn.configure(text=self._keys_title(True))
-
+    # ---- 快捷鍵表（點鍵改）----
     def _build_keys_table(self) -> ctk.CTkFrame:
         """兩欄：左邊是鍵（可改的是按鈕，點了再按組合鍵；滑鼠那些是字，不能改），右邊是功能。"""
         box = ctk.CTkFrame(self.body, fg_color="transparent")

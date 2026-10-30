@@ -279,3 +279,33 @@ Ctrl+F 搜尋日期或內容；標題前的 ☆ 點一下加入「我的最愛�
 語言、字體、左欄放哪邊、快捷鍵（可以自己改）、更新提醒都在那裡。這個教學在 設定 → 更新 可以再看一次。,"Language, font, side-panel position, shortcuts (you can change them) and update reminders are all there. You can see this tour again under Settings → Update.",语言、字体、左栏放哪边、快捷键（可以自己改）、更新提醒都在那里。这个教程在 设置 → 更新 可以再看一次。,言語、フォント、サイドパネルの位置、ショートカット（変更可）、更新通知はすべてそこにあります。このガイドは 設定 → 更新 からもう一度見られます。,TourDialog.PAGES
 標題（點這裡改）,Title (click to edit),标题（点这里改）,タイトル（クリックして編集）,personalnote\ui\editor.py:166
 上面那格是標題，點一下就能改。\n直接打字就會自動存。\nCtrl+V 貼截圖、把 .txt／.md 拖進來也可以。,The box above is the title; click it to edit.\nJust start typing; it saves automatically.\nCtrl+V pastes a screenshot; you can also drop .txt / .md files here.,上面那格是标题，点一下就能改。\n直接打字就会自动存。\nCtrl+V 贴截图、把 .txt／.md 拖进来也可以。,上の欄がタイトルです。クリックして編集できます。\nそのまま入力すれば自動保存されます。\nCtrl+V でスクリーンショットを貼り付け、.txt／.md をドロップすることもできます。,personalnote\ui\editor.py:241
+你的資料與隱私,Your data and privacy,你的数据与隐私,データとプライバシー,personalnote\ui\main_window.py:1243
+筆記只存在這台電腦的資料夾裡，不經過任何雲端、不用帳號，程式也不收集任何東西。,"Notes live only in a folder on this PC: no cloud, no account, and the app collects nothing.",笔记只存在这台电脑的文件夹里，不经过任何云端、不用账号，程序也不收集任何东西。,ノートはこの PC のフォルダーにだけ保存されます。クラウドもアカウントも使わず、アプリは何も収集しません。,personalnote\ui\main_window.py:1244
+唯一會連網的是「更新」分頁：啟動時讀一次 GitHub 上的版本號（可以關掉）。,The only network access is the Update tab: at startup it reads the version number on GitHub once (can be turned off).,唯一会联网的是“更新”页：启动时读一次 GitHub 上的版本号（可以关掉）。,ネットワークを使うのは「更新」タブだけ：起動時に GitHub のバージョン番号を 1 回読みます（オフにできます）。,personalnote\ui\main_window.py:1245
+加密＝用你登入的這個 Windows 帳號把檔案鎖住（DPAPI）：別人拷走檔案打不開，換帳號或換電腦也打不開，所以換電腦前先「匯出全部」成純文字。關掉加密就是普通的 .md 文字檔。,"Encryption locks each file to the Windows account you are signed in with (DPAPI): copied files cannot be opened elsewhere, and neither can they after switching accounts or PCs, so “Export all” to plain text before moving. With encryption off, notes are ordinary .md text files.",加密＝用你登录的这个 Windows 账号把文件锁住（DPAPI）：别人拷走文件打不开，换账号或换电脑也打不开，所以换电脑前先“导出全部”成纯文本。关掉加密就是普通的 .md 文本文件。,暗号化＝サインイン中の Windows アカウントにファイルを結び付けて保護します（DPAPI）。コピーされたファイルは他では開けず、アカウントや PC を変えても開けません。移行前に「すべてエクスポート」でテキストにしてください。暗号化をオフにすると普通の .md テキストです。,personalnote\ui\main_window.py:1268
+① 程式開啟幾秒後讀一次 GitHub 上的版本號（只讀，不傳任何東西出去）,"① A few seconds after start, the app reads the version number on GitHub once (read only; nothing is sent)",① 程序开启几秒后读一次 GitHub 上的版本号（只读，不传任何东西出去）,① 起動後数秒で GitHub のバージョン番号を 1 回読みます（読むだけで何も送りません）,personalnote\ui\main_window.py:1332
+② 比你的新就跳提醒；或在這裡按「重新檢查」,"② If it is newer than yours, a reminder appears; or click “Check again” here",② 比你的新就跳提醒；或在这里按“重新检查”,② 新しければ通知が出ます。ここで「再確認」を押しても可,personalnote\ui\main_window.py:1333
+③ 按「下載新版」開瀏覽器拿 zip,③ Click “Download” to get the zip in your browser,③ 按“下载新版”开浏览器拿 zip,③ 「ダウンロード」でブラウザーから zip を取得,personalnote\ui\main_window.py:1334
+④ 關掉 Notion，把 zip 裡的 Notion.exe 蓋掉原本的，再開,"④ Close Notion, replace Notion.exe with the one from the zip, then start it again",④ 关掉 Notion，把 zip 里的 Notion.exe 盖掉原本的，再开,④ Notion を閉じ、zip 内の Notion.exe で元のファイルを置き換えて再起動,personalnote\ui\main_window.py:1335
+筆記和設定都在資料夾裡，換 exe 不會動到。,Notes and settings stay in the folder; replacing the exe does not touch them.,笔记和设置都在文件夹里，换 exe 不会动到。,ノートと設定はフォルダー内にあり、exe を置き換えても変わりません。,personalnote\ui\main_window.py:1336
+說明,Help,说明,ヘルプ,personalnote\ui\main_window.py:1340
+關於,About,关于,このアプリについて,personalnote\ui\main_window.py:1345
+{0} {1}\n用 Python {2} 寫的（畫面：tkinter ＋ customtkinter；打包：PyInstaller）\n開發：{3},{0} {1}\nWritten in Python {2} (UI: tkinter + customtkinter; packaged with PyInstaller)\nDeveloper: {3},{0} {1}\n用 Python {2} 写的（界面：tkinter ＋ customtkinter；打包：PyInstaller）\n开发：{3},{0} {1}\nPython {2} で作成（画面：tkinter ＋ customtkinter、パッケージ：PyInstaller）\n開発：{3},personalnote\ui\main_window.py:1347
+存檔,Files,存档,保存,SettingsPanel.TABS
+紀錄,Logs,记录,ログ,SettingsPanel.TABS
+筆記照日期放在左欄，一天可以很多張,"Notes are listed by day in the side panel, as many per day as you like",笔记照日期放在左栏，一天可以很多张,ノートは日付ごとにサイドパネルに並び、1 日に何枚でも作れます,TourDialog.PAGES
+「＋ 新筆記」或 Ctrl+N 在今天加一張，第一行就是標題,“+ New note” or Ctrl+N adds one for today; the first line is the title,“＋ 新笔记”或 Ctrl+N 在今天加一张，第一行就是标题,「＋ 新しいノート」か Ctrl+N で今日に 1 枚追加。1 行目がタイトルです,TourDialog.PAGES
+停下來 1 秒多就自動存，不用按儲存,It saves by itself about a second after you stop typing,停下来 1 秒多就自动存，不用按保存,入力を止めて 1 秒ほどで自動保存されます,TourDialog.PAGES
+==重點==、!!紅字!!、**粗體**、*斜體*,"==highlight==, !!red!!, **bold**, *italic*",==重点==、!!红字!!、**粗体**、*斜体*,==強調==、!!赤字!!、**太字**、*斜体*,TourDialog.PAGES
+三個反引號包起來是指令區塊，右上角可一鍵複製,Three backticks make a command block with one-click copy at the top right,三个反引号包起来是指令区块，右上角可一键复制,バッククォート 3 つで囲むとコマンドブロック。右上でワンクリックコピー,TourDialog.PAGES
+游標離開那行，記號就藏起來；格式列的按鈕也能加,Marks hide once the cursor leaves the line; the format bar buttons add them too,光标离开那行，记号就藏起来；格式栏的按钮也能加,カーソルが行を離れると記号は隠れます。書式バーのボタンでも付けられます,TourDialog.PAGES
+Ctrl+V 直接貼截圖，角落把手可以拉大小,Ctrl+V pastes a screenshot; drag the corner handle to resize,Ctrl+V 直接贴截图，角落把手可以拉大小,Ctrl+V でスクリーンショットを貼り付け、角のハンドルでサイズ変更,TourDialog.PAGES
+.md／.txt 拖進視窗就變成今天的筆記,Drop .md / .txt files into the window to make them today's notes,.md／.txt 拖进窗口就变成今天的笔记,.md／.txt をウィンドウにドロップすると今日のノートになります,TourDialog.PAGES
+其他檔用 📎 放附件連結，Ctrl+點連結會打開,For other files use 📎 to add an attachment link; Ctrl+click opens it,其他文件用 📎 放附件链接，Ctrl+点链接会打开,他のファイルは 📎 で添付リンクを付け、Ctrl+クリックで開きます,TourDialog.PAGES
+Ctrl+F 搜尋日期或內容,Ctrl+F searches dates and text,Ctrl+F 搜索日期或内容,Ctrl+F で日付や本文を検索,TourDialog.PAGES
+標題前的 ☆ 點一下加入「我的最愛」,Click the ☆ before a title to add it to Favorites,标题前的 ☆ 点一下加入“我的最爱”,タイトル前の ☆ をクリックでお気に入りに追加,TourDialog.PAGES
+行首打 - [ ] 就是打勾清單；左欄、日期、內文都有右鍵選單,"Start a line with - [ ] for a checklist; the side panel, day headers and text all have right-click menus",行首打 - [ ] 就是打勾清单；左栏、日期、正文都有右键菜单,行頭に - [ ] でチェックリスト。サイドパネル、日付、本文に右クリックメニューがあります,TourDialog.PAGES
+設定在右上角,Settings are at the top right,设置在右上角,設定は右上にあります,TourDialog.PAGES
+語言、字體、左欄放哪邊、快捷鍵（可以自己改）,"Language, font, side-panel position, shortcuts (you can change them)",语言、字体、左栏放哪边、快捷键（可以自己改）,言語、フォント、サイドパネルの位置、ショートカット（変更可）,TourDialog.PAGES
+更新：有新版會提醒，可以關掉,Update: you are reminded when a new version is out; can be turned off,更新：有新版会提醒，可以关掉,更新：新しいバージョンがあれば通知します（オフにできます）,TourDialog.PAGES
+這個教學在 設定 → 更新 可以再看一次,You can see this tour again under Settings → Update,这个教程在 设置 → 更新 可以再看一次,このガイドは 設定 → 更新 からもう一度見られます,TourDialog.PAGES

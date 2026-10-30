@@ -268,6 +268,7 @@ win._update_prompt = None
 win.start_update_check(force=True, fetch=fake, notify=True); wait_update()
 check(getattr(win, "_update_prompt", None) is None, "同一版不再跳提醒")
 win.open_settings(); win.update(); pnl = win._settings_panel
+pnl.tabs.set(pnl._tab_titles["更新"]); win.update(); win.update()
 check("9.9.9" in pnl._update_lbl.cget("text") and pnl._update_btn.winfo_ismapped(), "設定裡顯示有新版、下載鈕出現")
 opened.clear(); pnl._update_btn.invoke(); win.update()
 check(bool(opened) and opened[-1].endswith("Notion_v9.9.9.zip"), "下載鈕開 zip 網址")

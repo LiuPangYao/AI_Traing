@@ -61,7 +61,7 @@ language in the "Language" row; the window switches instantly.
 - 左邊日期列按右鍵：在這天新增、整天合成一個 .md 匯出、清掉整天。滑過日期列才會出現「＋」。
 - 筆記列標題前的 ☆：點一下加入我的最愛（最上面多一組「★ 我的最愛」，點那裡的列也會開那張），再點一次取消。
 - 第一次開會有五頁的使用教學，看一次就不再出現；⚙ 設定 → 更新 → 「再看一次使用教學」可以再看。
-- 更新：程式開啟幾秒後會去 GitHub 看有沒有新版（只讀版本號，不會傳任何東西出去）。有新版會跳提醒：
+- 更新（⚙ 設定 → 「更新」分頁）：程式開啟幾秒後會去 GitHub 看有沒有新版（只讀版本號，不會傳任何東西出去）。有新版會跳提醒：
   「下載新版」開瀏覽器下載 zip，解開後把 Notion.exe 換掉就好（筆記、設定都不會動）；「這一版不再提醒」；
   勾「以後都不提醒」或 ⚙ 設定 → 更新 的開關可以關掉提醒。Notion.bat 裡 set NOTE_UPDATE_CHECK=0 可完全不查。
 - 右下角：N 行 · N 字，和「已儲存 時間」（幾秒後自己淡掉）。
@@ -106,6 +106,15 @@ def main() -> int:
         ("翻譯表", [sys.executable, "-X", "utf8", "tools/check_strings.py", "--strict"]),
         ("開視窗走一遍（標記、拖檔、新筆記）", [sys.executable, "-X", "utf8", "tools/stress/ui_checks.py"]),
     ]
+    import re
+    stale = []
+    for name in ("README.md", "README.en.md", "README.ja.md", "README.th.md", "README.hi.md"):
+        m = re.search(r"<!-- version: ([\d.]+) -->", (ROOT / name).read_text(encoding="utf-8"))
+        if not m or m.group(1) != __version__:
+            stale.append(f"{name}（{m.group(1) if m else '沒有標記'}）")
+    if stale:
+        print(f"README 沒跟上版號 {__version__}，先把這幾份更新（描述與 <!-- version --> 標記）再打包：", "、".join(stale))
+        return 1
     for what, cmd in checks:
         r = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True, encoding="utf-8", errors="replace")
         if r.returncode != 0:
@@ -120,6 +129,7 @@ def main() -> int:
     for f in (exe, ROOT / "Notion.bat"):        # 開機啟動的兩個 .bat 不再附（Windows 讓使用者自己放捷徑）
         shutil.copy2(f, out_dir / f.name)
     (out_dir / "使用說明.txt").write_text(GUIDE, encoding="utf-8-sig")   # 記事本看得懂的 UTF-8（帶 BOM）
+    (out_dir / "加密與本機說明.txt").write_text((ROOT / "docs" / "加密與本機說明.md").read_text(encoding="utf-8"), encoding="utf-8-sig")
     zip_path = shutil.make_archive(str(ROOT / "release" / name), "zip", root_dir=out_dir.parent, base_dir=name)
     print("資料夾：", out_dir)
     print("壓縮檔：", zip_path, f"{Path(zip_path).stat().st_size / 1e6:.1f} MB")
