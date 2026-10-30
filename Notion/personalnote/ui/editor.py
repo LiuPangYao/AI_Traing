@@ -161,10 +161,11 @@ class Editor(ctk.CTkFrame):
         self.last_error = ""
 
         # 標題欄：就是檔案的第一行。左欄顯示它；留空的話左欄拿內文第一行（去掉 1. / - 標記）
-        # 無框大字（Peter：標題和格式列兩個同色方塊疊著很呆板）；空的時候有淡灰的「標題（可留空）」提示
+        # 大字、透明底、只留一圈細框（Peter 2026-10-30：全透明會不知道標題可以改）；空的時候有淡灰的提示字
         self._title_font = ctk.CTkFont(family=font_family, size=font_size + 6, weight="bold")
-        self.title = ctk.CTkEntry(self, font=self._title_font, placeholder_text=_("標題（可留空）"),
-                                  corner_radius=0, fg_color="transparent", border_width=0, height=40)
+        self.title = ctk.CTkEntry(self, font=self._title_font, placeholder_text=_("標題（點這裡改）"),
+                                  corner_radius=T.RADIUS, fg_color="transparent", border_width=1,
+                                  border_color=T.TEXT_MUTED, height=40)
         self.title.grid(row=0, column=0, sticky="ew", padx=4, pady=(0, 2))
         self.title.bind("<KeyRelease>", self._on_title_changed)
         self.title.bind("<Return>", lambda _e: (self.text.focus_set(), "break")[1])
@@ -237,7 +238,7 @@ class Editor(ctk.CTkFrame):
         self.text.bind("<Button-1>", self._on_click)             # 點圖 → 出現縮放把手
         self.text.bind("<KeyPress>", lambda _e: (self._hide_handle(), self._hint.place_forget()), add="+")
         # 空筆記的提示（Peter：整片白很呆板）：內文空的才顯示，一打字就消失
-        self._hint = tk.Label(self.text._textbox, text=_("直接打字就會自動存。\nCtrl+V 貼截圖、把 .txt／.md 或檔案拖進來也可以。"),
+        self._hint = tk.Label(self.text._textbox, text=_("上面那格是標題，點一下就能改。\n直接打字就會自動存。\nCtrl+V 貼截圖、把 .txt／.md 拖進來也可以。"),
                               font=(T.UI_FONT_FAMILY, 11), justify="left", bd=0,
                               fg=self._muted_color(), bg=self.text._textbox.cget("background"))
         self.text.bind("<Motion>", self._on_motion)              # 滑鼠停在連結上 → 顯示完整路徑

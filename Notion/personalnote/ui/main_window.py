@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import threading
 import tkinter as tk
 from datetime import date, datetime
 from pathlib import Path
@@ -24,7 +25,7 @@ from typing import Optional
 import customtkinter as ctk
 
 from ..i18n import _
-from .. import APP_NAME, AUTHOR, __version__, applog, dropfiles, keys, platform_, startup
+from .. import APP_NAME, AUTHOR, __version__, applog, dropfiles, keys, platform_, startup, update
 from ..config import Settings
 from ..state import AppState
 from ..storage import FAV_DAY, IMPORT_MAX_BYTES, TODO_DAY, TODO_ID, NoteId, NoteRef, NoteStore, title_of, tomorrow, yesterday
@@ -59,6 +60,11 @@ class MainWindow(ctk.CTk):
         self._fav_cache: set = set()                    # 有星號的筆記（_refresh_sidebar 每次重算）
         self._build_ui()
         self._bind_keys()
+        self._update = {"status": "idle", "info": None}     # 查新版的結果（start_update_check）
+        if os.environ.get("NOTE_UPDATE_CHECK", "1") != "0":
+            self.after(3000, lambda: self.start_update_check(notify=True))   # 開了幾秒再查，不拖慢啟動
+        if not self.state_.tour_done and os.environ.get("NOTE_TOUR", "1") != "0":
+            self.after(600, self.show_tour)                  # 第一次開：教一次怎麼用，之後不再出現（設定裡可再看）
         self.bind("<FocusIn>", self._on_focus_in)      # 回到視窗時看資料夾有沒有被別的程式動過
         self._last_focus_check = 0.0
         try:                                 # 拖檔案進視窗（見 dropfiles.py）；失敗只記 log，不影響其他功能
@@ -838,6 +844,54 @@ class MainWindow(ctk.CTk):
         applog.info("我的最愛 %s %s", "加入" if on else "取消", nid)
         self._refresh_sidebar()
 
+    # ---- 查新版、啟動提醒、使用教學 ----
+    def start_update_check(self, force: bool = False, fetch=None, notify: bool = False) -> None:
+        """背景執行緒去 GitHub 看有沒有新版（執行緒裡不碰 Tk；結果用 after 輪詢拿回來）。
+        notify：查到比現在新、開關開著、而且不是「這一版不再提醒」的那版，就跳提醒。fetch 給測試用。"""
+        if self._update["status"] == "checking":
+            return
+        if self._update["status"] != "idle" and not force:
+            return
+        self._update = {"status": "checking", "info": None}
+        p = getattr(self, "_settings_panel", None)
+        if p is not None and p.winfo_exists():
+            p.refresh_update()
+        box: dict = {}
+        fetch_fn = fetch or update.fetch
+
+        def work():
+            box["r"] = update.check(__version__, fetch_fn)
+
+        threading.Thread(target=work, daemon=True, name="update-check").start()
+
+        def poll():
+            if "r" not in box:
+                self.after(300, poll)
+                return
+            status, info = box["r"]
+            self._update = {"status": status, "info": info}
+            applog.info("查新版：%s %s", status, info)
+            panel = getattr(self, "_settings_panel", None)
+            if panel is not None and panel.winfo_exists():
+                panel.refresh_update()
+            if (notify and info is not None and info.newer and self.settings.update_notify
+                    and info.version != self.settings.update_skip):
+                self._update_prompt = UpdatePrompt(self, info)
+
+        self.after(300, poll)
+
+    def set_update_notify(self, on: bool) -> None:
+        self.settings = self.settings.with_(update_notify=on)
+        self.settings.save()
+
+    def show_tour(self) -> None:
+        """使用教學（第一次開自動跳；設定裡「再看一次」）。"""
+        t = getattr(self, "_tour", None)
+        if t is not None and t.winfo_exists():
+            t.lift(); t.focus_force()
+            return
+        self._tour = TourDialog(self)
+
     def set_topmost(self, on: bool) -> None:
         self.settings = self.settings.with_(topmost=on)
         self.attributes("-topmost", on)
@@ -971,6 +1025,106 @@ def _set_icon(win) -> None:
         platform_.set_window_icon(win, base / "icon.ico", base / "icon.png")
 
 
+class UpdatePrompt(ctk.CTkToplevel):
+    """啟動時發現有新版的提醒：下載／這一版不再提醒／稍後；勾「以後都不提醒」等於關掉設定裡的開關。"""
+
+    def __init__(self, win: MainWindow, info):
+        super().__init__(win)
+        self.win, self.info = win, info
+        self.title(_("有新版"))
+        self.attributes("-topmost", True)
+        _quiet_dialog(self)
+        ctk.CTkLabel(self, text=_("{0} 有新版 {1}（你現在是 {2}）。").format(APP_NAME, info.version, __version__),
+                     font=T.ui_font(13, "bold")).pack(padx=20, pady=(16, 4), anchor="w")
+        ctk.CTkLabel(self, text=_("下載後把 Notion.exe 換掉就好，筆記和設定都不會動。"), font=T.ui_font(12),
+                     text_color=T.TEXT_MUTED, wraplength=400, justify="left").pack(padx=20, pady=(0, 10), anchor="w")
+        self._never = ctk.CTkCheckBox(self, text=_("以後都不提醒（設定 → 更新 可以再打開）"), font=T.ui_font(11))
+        self._never.pack(padx=20, pady=(0, 10), anchor="w")
+        row = ctk.CTkFrame(self, fg_color="transparent")
+        row.pack(fill="x", padx=16, pady=(0, 14))
+        ctk.CTkButton(row, text=_("下載新版"), font=T.ui_font(12), width=110, fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
+                      command=self._download).pack(side="right", padx=(8, 0))
+        ctk.CTkButton(row, text=_("這一版不再提醒"), font=T.ui_font(12), width=130, fg_color="transparent", border_width=1,
+                      text_color=T.TEXT, command=self._skip_version).pack(side="right", padx=(8, 0))
+        ctk.CTkButton(row, text=_("稍後再說"), font=T.ui_font(12), width=80, fg_color="transparent", text_color=T.TEXT_MUTED,
+                      hover_color=T.ROW_HOVER, command=self._later).pack(side="left")
+        self.protocol("WM_DELETE_WINDOW", self._later)
+        T.center_over(self, win)
+
+    def _close(self) -> None:
+        if self._never.get():
+            self.win.set_update_notify(False)
+        self.destroy()
+
+    def _download(self) -> None:
+        platform_.open_path(self.info.url)
+        self._close()
+
+    def _skip_version(self) -> None:
+        self.win.settings = self.win.settings.with_(update_skip=self.info.version)
+        self.win.settings.save()
+        self._close()
+
+    def _later(self) -> None:
+        self._close()
+
+
+class TourDialog(ctk.CTkToplevel):
+    """第一次開程式的使用教學：幾頁、看一次就好（state.json 的 tour_done）；設定 → 更新 裡可以再看。
+    頁面文字顯示時才 _()，tools/check_strings.py 會把 PAGES 列進翻譯表。"""
+
+    PAGES = (
+        ("歡迎使用 {0}", "筆記照日期放在左欄，一天可以很多張。按上面的「＋ 新筆記」（或 Ctrl+N）在今天加一張，第一行就是標題。停下來 1 秒多就自動存，不用按儲存。"),
+        ("記號會自動上色", "==重點==、!!紅字!!、**粗體**、*斜體*，三個反引號包起來是指令區塊（右上角可一鍵複製）。選好字再按格式列的按鈕也行；游標離開那行，記號就會藏起來。"),
+        ("圖與檔案", "Ctrl+V 直接貼截圖，角落把手可以拉大小。.md／.txt 拖進視窗就變成今天的筆記；其他檔用 📎 放附件連結，Ctrl+點連結會打開。"),
+        ("找與整理", "Ctrl+F 搜尋日期或內容；標題前的 ☆ 點一下加入「我的最愛」；行首打 - [ ] 就是打勾清單。左欄筆記、日期標題、內文都有右鍵選單。"),
+        ("設定在右上角 ⚙", "語言、字體、左欄放哪邊、快捷鍵（可以自己改）、更新提醒都在那裡。這個教學在 設定 → 更新 可以再看一次。"),
+    )
+
+    def __init__(self, win: MainWindow):
+        super().__init__(win)
+        self.win = win
+        self._page = 0
+        self.title(_("使用教學"))
+        self.attributes("-topmost", True)
+        _quiet_dialog(self)
+        self._title = ctk.CTkLabel(self, text="", font=T.ui_font(15, "bold"), anchor="w")
+        self._title.pack(fill="x", padx=22, pady=(18, 6))
+        self._body = ctk.CTkLabel(self, text="", font=T.ui_font(12), wraplength=420, justify="left", anchor="nw")
+        self._body.pack(fill="both", expand=True, padx=22, pady=(0, 10))
+        row = ctk.CTkFrame(self, fg_color="transparent")
+        row.pack(fill="x", padx=16, pady=(0, 14))
+        self._pos = ctk.CTkLabel(row, text="", font=T.ui_font(11), text_color=T.TEXT_MUTED)
+        self._pos.pack(side="left", padx=(6, 0))
+        self._next_btn = ctk.CTkButton(row, text="", font=T.ui_font(12), width=96, fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER,
+                                       command=self._next)
+        self._next_btn.pack(side="right", padx=(8, 0))
+        ctk.CTkButton(row, text=_("跳過"), font=T.ui_font(12), width=70, fg_color="transparent", text_color=T.TEXT_MUTED,
+                      hover_color=T.ROW_HOVER, command=self._finish).pack(side="right")
+        self.protocol("WM_DELETE_WINDOW", self._finish)
+        self._render()
+        T.center_over(self, win, 480, 300)
+
+    def _render(self) -> None:
+        t, b = self.PAGES[self._page]
+        self._title.configure(text=_(t).format(APP_NAME))
+        self._body.configure(text=_(b))
+        self._pos.configure(text=f"{self._page + 1} / {len(self.PAGES)}")
+        self._next_btn.configure(text=_("完成") if self._page == len(self.PAGES) - 1 else _("下一步"))
+
+    def _next(self) -> None:
+        if self._page >= len(self.PAGES) - 1:
+            self._finish()
+            return
+        self._page += 1
+        self._render()
+
+    def _finish(self) -> None:
+        self.win.state_ = self.win.state_.with_(tour_done=True)
+        self.win._save_state()
+        self.destroy()
+
+
 class SettingsPanel(ctk.CTkToplevel):
     """設定面板。每個控制項直接呼叫 MainWindow 的 set_xxx，不自己存檔。
 
@@ -1098,6 +1252,28 @@ class SettingsPanel(ctk.CTkToplevel):
         self._keys_btn.grid(row=self._r, column=0, columnspan=2, sticky="w", padx=10, pady=(12, 2)); self._r += 1
         self._keys_row = self._r; self._r += 1      # 展開時表格放這一列
 
+        self._section(_("更新"))
+        upd_row = ctk.CTkFrame(self.body, fg_color="transparent")
+        self._update_lbl = ctk.CTkLabel(upd_row, text="", font=T.ui_font(11), text_color=T.TEXT_MUTED, anchor="w",
+                                        justify="left", wraplength=380)
+        self._update_lbl.pack(side="left", fill="x", expand=True)
+        ctk.CTkButton(upd_row, text=_("重新檢查"), font=T.ui_font(11), width=80, height=24, fg_color="transparent",
+                      border_width=1, text_color=T.TEXT, command=lambda: win.start_update_check(force=True)).pack(side="right", padx=(8, 0))
+        self._update_btn = ctk.CTkButton(upd_row, text=_("下載新版"), font=T.ui_font(11), width=90, height=24,
+                                         fg_color=T.ACCENT, hover_color=T.ACCENT_HOVER, command=self._download_update)
+        self._full(upd_row, pady=2)
+        upd_row.grid_configure(sticky="ew")
+        self._notify_sw = ctk.CTkSwitch(self.body, text=_("啟動時有新版就提醒我"), font=T.ui_font(12),
+                                        command=lambda: win.set_update_notify(bool(self._notify_sw.get())))
+        (self._notify_sw.select if win.settings.update_notify else self._notify_sw.deselect)()
+        self._full(self._notify_sw)
+        ctk.CTkButton(self.body, text=_("再看一次使用教學"), font=T.ui_font(11), width=140, height=24, fg_color="transparent",
+                      border_width=1, text_color=T.TEXT, command=win.show_tour).grid(
+            row=self._r, column=0, columnspan=2, sticky="w", padx=16, pady=(2, 4)); self._r += 1
+        self.refresh_update()
+        if win._update["status"] == "idle":
+            win.start_update_check()
+
         self._section(_("紀錄與當機檔（回報問題時把這些一起給）"))
         log_dir = applog.log_dir()
         rescue_dir = log_dir.parent / "rescue"
@@ -1119,6 +1295,34 @@ class SettingsPanel(ctk.CTkToplevel):
         inner = self.body.winfo_reqheight()          # 內容實際要的高度（body 是放內容的那個框）
         self.body.configure(height=min(inner, self.winfo_screenheight() - 140))   # 放得下就不出現捲軸
         T.center_over(self, win)                 # 全部排好才知道面板多大，最後再放到主視窗正中央
+
+    # ---- 更新 ----
+    def refresh_update(self) -> None:
+        """照主視窗查到的結果更新文字；有新版才顯示「下載新版」。"""
+        st, info = self.win._update["status"], self.win._update["info"]
+        newer = st == "ok" and info is not None and info.newer
+        if st == "checking":
+            text = _("正在查 GitHub 有沒有新版…")
+        elif newer:
+            text = _("有新版 {0}（你現在是 {1}）").format(info.version, __version__)
+        elif st == "ok":
+            text = _("已是最新（{0}）").format(__version__)
+        elif st == "no_release":
+            text = _("GitHub 上還沒有發布的版本（你現在是 {0}）").format(__version__)
+        elif st == "offline":
+            text = _("查不到（沒網路，或被防火牆擋住）")
+        else:
+            text = ""
+        self._update_lbl.configure(text=text)
+        if newer:
+            self._update_btn.pack(side="right", padx=(8, 0))
+        else:
+            self._update_btn.pack_forget()
+
+    def _download_update(self) -> None:
+        info = self.win._update["info"]
+        if info is not None:
+            platform_.open_path(info.url)
 
     # ---- 快捷鍵（預設收起；點開可以看、可以改）----
     def _keys_title(self, opened: bool) -> str:

@@ -248,3 +248,34 @@ Ctrl+滾輪,Ctrl+wheel,Ctrl+滚轮,Ctrl+ホイール,keys.GESTURES
 我的最愛,Favorites,我的最爱,お気に入り,personalnote\ui\sidebar.py:338
 筆記列前的 ☆,☆ before a note,笔记列前的 ☆,ノートの前の ☆,keys.GESTURES
 點一下加入我的最愛，最上面會多一組「★ 我的最愛」；再點一次取消,Click to add the note to Favorites (a “★ Favorites” group appears at the top); click again to remove,点一下加入我的最爱，最上面会多一组“★ 我的最爱”；再点一次取消,クリックでお気に入りに追加（いちばん上に「★ お気に入り」が現れます）。もう一度クリックで解除,keys.GESTURES
+有新版,New version,有新版,新しいバージョン,personalnote\ui\main_window.py:1034
+{0} 有新版 {1}（你現在是 {2}）。,{0} {1} is available (you have {2}).,{0} 有新版 {1}（你现在是 {2}）。,{0} の新しいバージョン {1} があります（現在は {2}）。,personalnote\ui\main_window.py:1037
+下載後把 Notion.exe 換掉就好，筆記和設定都不會動。,"After downloading, just replace Notion.exe; your notes and settings are untouched.",下载后把 Notion.exe 换掉就好，笔记和设置都不会动。,ダウンロード後に Notion.exe を置き換えるだけです。ノートと設定はそのまま残ります。,personalnote\ui\main_window.py:1039
+以後都不提醒（設定 → 更新 可以再打開）,Don't remind me again (can be re-enabled in Settings → Update),以后都不提醒（设置 → 更新 可以再打开）,今後は通知しない（設定 → 更新 で再び有効にできます）,personalnote\ui\main_window.py:1041
+下載新版,Download,下载新版,ダウンロード,personalnote\ui\main_window.py:1045
+這一版不再提醒,Skip this version,这一版不再提醒,このバージョンは通知しない,personalnote\ui\main_window.py:1047
+稍後再說,Later,稍后再说,あとで,personalnote\ui\main_window.py:1049
+使用教學,Quick tour,使用教程,使い方ガイド,personalnote\ui\main_window.py:1088
+跳過,Skip,跳过,スキップ,personalnote\ui\main_window.py:1102
+完成,Done,完成,完了,personalnote\ui\main_window.py:1113
+更新,Update,更新,更新,personalnote\ui\main_window.py:1255
+重新檢查,Check again,重新检查,再確認,personalnote\ui\main_window.py:1260
+啟動時有新版就提醒我,Remind me at startup when a new version is available,启动时有新版就提醒我,起動時に新しいバージョンがあれば知らせる,personalnote\ui\main_window.py:1266
+再看一次使用教學,Show the quick tour again,再看一次使用教程,使い方ガイドをもう一度見る,personalnote\ui\main_window.py:1270
+正在查 GitHub 有沒有新版…,Checking GitHub for a new version…,正在查 GitHub 有没有新版…,GitHub で新しいバージョンを確認中…,personalnote\ui\main_window.py:1305
+有新版 {0}（你現在是 {1}）,Version {0} is available (you have {1}),有新版 {0}（你现在是 {1}）,新しいバージョン {0} があります（現在は {1}）,personalnote\ui\main_window.py:1307
+已是最新（{0}）,Up to date ({0}),已是最新（{0}）,最新です（{0}）,personalnote\ui\main_window.py:1309
+GitHub 上還沒有發布的版本（你現在是 {0}）,No release published on GitHub yet (you have {0}),GitHub 上还没有发布的版本（你现在是 {0}）,GitHub にはまだリリースがありません（現在は {0}）,personalnote\ui\main_window.py:1311
+查不到（沒網路，或被防火牆擋住）,"Could not check (no network, or blocked by a firewall)",查不到（没网络，或被防火墙挡住）,確認できません（ネットワークがないか、ファイアウォールで遮断されています）,personalnote\ui\main_window.py:1313
+歡迎使用 {0},Welcome to {0},欢迎使用 {0},{0} へようこそ,TourDialog.PAGES
+筆記照日期放在左欄，一天可以很多張。按上面的「＋ 新筆記」（或 Ctrl+N）在今天加一張，第一行就是標題。停下來 1 秒多就自動存，不用按儲存。,"Notes are listed by day in the side panel, as many per day as you like. Click “+ New note” at the top (or Ctrl+N) to add one for today; the first line is the title. It saves by itself about a second after you stop typing.",笔记照日期放在左栏，一天可以很多张。按上面的“＋ 新笔记”（或 Ctrl+N）在今天加一张，第一行就是标题。停下来 1 秒多就自动存，不用按保存。,ノートは日付ごとにサイドパネルに並びます。1 日に何枚でも作れます。上の「＋ 新しいノート」（または Ctrl+N）で今日に 1 枚追加。1 行目がタイトルです。入力を止めて 1 秒ほどで自動保存されます。,TourDialog.PAGES
+記號會自動上色,Markup colours itself,记号会自动上色,記号は自動で色づきます,TourDialog.PAGES
+==重點==、!!紅字!!、**粗體**、*斜體*，三個反引號包起來是指令區塊（右上角可一鍵複製）。選好字再按格式列的按鈕也行；游標離開那行，記號就會藏起來。,"==highlight==, !!red!!, **bold**, *italic*; three backticks make a command block (one-click copy at the top right). You can also select text and use the format bar. The marks hide once the cursor leaves the line.",==重点==、!!红字!!、**粗体**、*斜体*，三个反引号包起来是指令区块（右上角可一键复制）。选好字再按格式栏的按钮也行；光标离开那行，记号就会藏起来。,==強調==、!!赤字!!、**太字**、*斜体*。バッククォート 3 つで囲むとコマンドブロック（右上でワンクリックコピー）。文字を選んで書式バーのボタンでも可。カーソルがその行を離れると記号は隠れます。,TourDialog.PAGES
+圖與檔案,Images and files,图与文件,画像とファイル,TourDialog.PAGES
+Ctrl+V 直接貼截圖，角落把手可以拉大小。.md／.txt 拖進視窗就變成今天的筆記；其他檔用 📎 放附件連結，Ctrl+點連結會打開。,"Ctrl+V pastes a screenshot; drag the corner handle to resize. Drop .md / .txt files into the window to turn them into today's notes; for other files use 📎 to add an attachment link, and Ctrl+click opens it.",Ctrl+V 直接贴截图，角落把手可以拉大小。.md／.txt 拖进窗口就变成今天的笔记；其他文件用 📎 放附件链接，Ctrl+点链接会打开。,Ctrl+V でスクリーンショットを貼り付け、角のハンドルでサイズ変更。.md／.txt をウィンドウにドロップすると今日のノートになります。他のファイルは 📎 で添付リンクを付け、Ctrl+クリックで開きます。,TourDialog.PAGES
+找與整理,Find and organise,找与整理,検索と整理,TourDialog.PAGES
+Ctrl+F 搜尋日期或內容；標題前的 ☆ 點一下加入「我的最愛」；行首打 - [ ] 就是打勾清單。左欄筆記、日期標題、內文都有右鍵選單。,"Ctrl+F searches dates and text; click the ☆ before a title to add it to Favorites; start a line with - [ ] for a checklist. Notes in the side panel, day headers and the text all have right-click menus.",Ctrl+F 搜索日期或内容；标题前的 ☆ 点一下加入“我的最爱”；行首打 - [ ] 就是打勾清单。左栏笔记、日期标题、正文都有右键菜单。,Ctrl+F で日付や本文を検索。タイトル前の ☆ をクリックでお気に入りに追加。行頭に - [ ] と打つとチェックリスト。サイドパネルのノート、日付見出し、本文には右クリックメニューがあります。,TourDialog.PAGES
+設定在右上角 ⚙,Settings are under ⚙ at the top right,设置在右上角 ⚙,設定は右上の ⚙,TourDialog.PAGES
+語言、字體、左欄放哪邊、快捷鍵（可以自己改）、更新提醒都在那裡。這個教學在 設定 → 更新 可以再看一次。,"Language, font, side-panel position, shortcuts (you can change them) and update reminders are all there. You can see this tour again under Settings → Update.",语言、字体、左栏放哪边、快捷键（可以自己改）、更新提醒都在那里。这个教程在 设置 → 更新 可以再看一次。,言語、フォント、サイドパネルの位置、ショートカット（変更可）、更新通知はすべてそこにあります。このガイドは 設定 → 更新 からもう一度見られます。,TourDialog.PAGES
+標題（點這裡改）,Title (click to edit),标题（点这里改）,タイトル（クリックして編集）,personalnote\ui\editor.py:166
+上面那格是標題，點一下就能改。\n直接打字就會自動存。\nCtrl+V 貼截圖、把 .txt／.md 拖進來也可以。,The box above is the title; click it to edit.\nJust start typing; it saves automatically.\nCtrl+V pastes a screenshot; you can also drop .txt / .md files here.,上面那格是标题，点一下就能改。\n直接打字就会自动存。\nCtrl+V 贴截图、把 .txt／.md 拖进来也可以。,上の欄がタイトルです。クリックして編集できます。\nそのまま入力すれば自動保存されます。\nCtrl+V でスクリーンショットを貼り付け、.txt／.md をドロップすることもできます。,personalnote\ui\editor.py:241

@@ -58,9 +58,11 @@ class Settings:
                                              # 不然「換位置」會寫進使用者真正的設定（2026-10-29 發生過：壓力測試把 Peter 的指標改掉）
 
     keys: dict = field(default_factory=dict)  # 使用者改過的快捷鍵 {功能代號: "Ctrl+Shift+N"}；沒改的用 keys.py 的預設
+    update_notify: bool = True               # 啟動時查到新版要不要跳提醒（設定 → 更新 的開關）
+    update_skip: str = ""                    # 「這一版不再提醒」記住的版本號
 
     # 這些欄位會寫進 settings.json（程式內可改的）；其餘只從 bat／命令列來
-    PERSISTED = ("theme", "font_size", "topmost", "encrypt", "lang", "keys")
+    PERSISTED = ("theme", "font_size", "topmost", "encrypt", "lang", "keys", "update_notify", "update_skip")
 
     # ---- 讀取 ----
     @classmethod
@@ -195,7 +197,9 @@ def _coerce(key: str, value: Any) -> Any:
         except (TypeError, ValueError):
             return Settings.font_size
         return max(8, min(48, n))
-    if key in ("topmost", "encrypt"):
+    if key == "update_skip":
+        return str(value).strip()
+    if key in ("topmost", "encrypt", "update_notify"):
         return value if isinstance(value, bool) else str(value).strip().lower() in _TRUE
     if key == "theme":
         v = str(value).strip().lower()

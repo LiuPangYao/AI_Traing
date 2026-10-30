@@ -22,6 +22,7 @@ class AppState:
     sidebar_width: int = 240            # 左欄寬度（拖分隔線改的；範圍見 theme.SIDEBAR_MIN／MAX；預設跟 theme.SIDEBAR_WIDTH 一樣）
     sidebar_height: int = 220           # 左欄放下面時的高（拖分隔線改的；範圍見 theme.SIDEBAR_MIN_H／MAX_H）
     sidebar_side: str = "left"          # 左欄放哪：left／right／bottom（設定裡改）
+    tour_done: bool = False             # 第一次開的使用教學看過了（之後不再跳；設定裡可以再看）
     format_bar: bool = False            # 內文上方的格式列（重點／紅字／粗體…）展開著嗎；預設收起來，不常用
     last_day: Optional[str] = None      # ISO 日期字串
 
@@ -40,6 +41,8 @@ class AppState:
         for k in ("sidebar_width", "sidebar_height"):
             if not isinstance(known.get(k, 0), int):
                 known.pop(k, None)
+        if not isinstance(known.get("tour_done", False), bool):
+            known.pop("tour_done", None)
         return replace(cls(), **known)
 
     def save(self, note_dir: Path) -> None:

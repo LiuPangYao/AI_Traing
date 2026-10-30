@@ -79,7 +79,7 @@ class ConfigTest(unittest.TestCase):
         s = Settings.load([], env={"NOTE_DIR": str(self.dir)}, appdata=self.dir / "ad").with_(font_size=18, topmost=True)
         s.save()
         data = json.loads(s.settings_path.read_text(encoding="utf-8"))
-        self.assertEqual(data, {"theme": "dark", "font_size": 18, "topmost": True, "encrypt": True, "lang": "en", "keys": {}})
+        self.assertEqual(data, {"theme": "dark", "font_size": 18, "topmost": True, "encrypt": True, "lang": "en", "keys": {}, "update_notify": True, "update_skip": ""})
 
     def test_bad_settings_file_ignored(self):
         (self.dir / ".app").mkdir()

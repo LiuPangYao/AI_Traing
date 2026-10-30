@@ -6,6 +6,8 @@ import os, pathlib, shutil, sys, tempfile, time
 from datetime import date
 
 os.environ["NOTE_ALLOW_MULTI"] = "1"
+os.environ["NOTE_UPDATE_CHECK"] = "0"   # 測試不連網
+os.environ["NOTE_TOUR"] = "0"           # 教學另外測
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from PIL import Image                                              # noqa: E402
@@ -31,6 +33,14 @@ body = ("今天 ==重點== 和 !!警告!! 和 **粗** 和 *斜* 😀 ==表情後
 st.save(NoteId(today, 1), "# 標記\n" + body)
 s = Settings.load(["--note-dir", str(tmp / "n1"), "--font-size", "15"], env={}, appdata=tmp / "a1")
 win = MainWindow(s, st); win.geometry("720x640+3000+3000"); win.update(); time.sleep(0.4); win.update()
+
+
+def key_on(w, seq):
+    """對某個元件模擬按鍵。桌面上別的程式拿走焦點時 Tk 會把按鍵事件丟掉，所以先把焦點要回來。"""
+    if win.focus_displayof() is None:
+        win.focus_force(); win.update()
+    w.focus_set(); w.event_generate(seq); win.update()
+
 e = win.editor; t = e.text._textbox
 def tagged(tag):
     r = t.tag_ranges(tag); return [t.get(r[i], r[i + 1]) for i in range(0, len(r), 2)]
@@ -76,7 +86,7 @@ t.mark_set("insert", "3.end"); e.insert_checkbox(); win.update()
 check(t.get("3.0", "3.end") == "- [ ] 普通行", "格式列「打勾」在行首加 - [ ] ")
 e.insert_checkbox(); win.update()
 check(t.get("3.0", "3.end") == "普通行", "再按一次拿掉")
-t.mark_set("insert", "1.end"); t.event_generate("<Return>"); win.update()
+t.mark_set("insert", "1.end"); key_on(t, "<Return>")
 check(t.get("2.0", "2.end") == "- [ ] ", "打勾清單按 Enter 接下一個空框")
 # 標籤
 e.set_text("# 標\n今天 #專案A 看 https://x.y/z#frag 和 issue #42"); win.update(); e._highlight_links(); win.update()
@@ -237,6 +247,45 @@ except keys_mod.Conflict as c:
     check(c.other == "search", "撞鍵被擋，並說是誰在用")
 win.set_keys(keys_mod.KeyMap.load()); win.update()
 check(win.keymap.overrides() == {} and _json.loads(win.settings.settings_path.read_text(encoding="utf-8"))["keys"] == {}, "全部還原預設")
+# 查新版（假的 GitHub 回應）、啟動提醒、設定裡的更新區；第一次開的使用教學
+import urllib.error as _ue
+from personalnote.state import AppState
+fake = lambda: {"tag_name": "v9.9.9", "html_url": "https://github.com/x/releases/tag/v9.9.9",
+                "assets": [{"name": "Notion_v9.9.9.zip", "browser_download_url": "https://github.com/x/Notion_v9.9.9.zip"}]}
+def wait_update():
+    for _ in range(60):
+        win.update(); time.sleep(0.05)
+        if win._update["status"] != "checking":
+            break
+    win.update()
+win.start_update_check(force=True, fetch=fake, notify=True); wait_update()
+check(win._update["status"] == "ok" and win._update["info"].newer and win._update["info"].version == "9.9.9", "查到新版 9.9.9")
+dlgp = getattr(win, "_update_prompt", None)
+check(dlgp is not None and dlgp.winfo_exists(), "啟動提醒視窗出現")
+dlgp._skip_version(); win.update()
+check(win.settings.update_skip == "9.9.9" and not dlgp.winfo_exists(), "「這一版不再提醒」記住 9.9.9")
+win._update_prompt = None
+win.start_update_check(force=True, fetch=fake, notify=True); wait_update()
+check(getattr(win, "_update_prompt", None) is None, "同一版不再跳提醒")
+win.open_settings(); win.update(); pnl = win._settings_panel
+check("9.9.9" in pnl._update_lbl.cget("text") and pnl._update_btn.winfo_ismapped(), "設定裡顯示有新版、下載鈕出現")
+opened.clear(); pnl._update_btn.invoke(); win.update()
+check(bool(opened) and opened[-1].endswith("Notion_v9.9.9.zip"), "下載鈕開 zip 網址")
+def fail():
+    raise _ue.URLError("no net")
+win.start_update_check(force=True, fetch=fail); wait_update()
+check(win._update["status"] == "offline" and not pnl._update_btn.winfo_ismapped() and "9.9.9" not in pnl._update_lbl.cget("text"), "沒網路：顯示查不到、沒有下載鈕")
+win.set_update_notify(False); win.update()
+check(win.settings.update_notify is False and _json.loads(win.settings.settings_path.read_text(encoding="utf-8"))["update_notify"] is False, "關掉啟動提醒會存進 settings.json")
+pnl.destroy(); win.update()
+check(not win.state_.tour_done, "新資料夾：教學還沒看過")
+win.show_tour(); win.update(); tour = win._tour
+check(tour is not None and tour.winfo_exists() and tour._page == 0 and "Notion" in tour._title.cget("text"), "教學視窗出現在第 1 頁")
+for _ in range(10):
+    if not tour.winfo_exists():
+        break
+    tour._next(); win.update()
+check(not tour.winfo_exists() and win.state_.tour_done and AppState.load(win.store.root).tour_done, "按到最後一頁關閉，記住看過了")
 win.destroy()
 shutil.rmtree(tmp, ignore_errors=True)
 print("UI:", "PASS" if not errors else f"FAIL ({len(errors)})")

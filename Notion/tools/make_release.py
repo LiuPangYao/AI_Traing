@@ -60,6 +60,10 @@ language in the "Language" row; the window switches instantly.
 - 內文或標題按右鍵：剪下、複製、貼上（剪貼簿是截圖會直接變成圖）、全選、複製成純文字（記號去掉，貼去別的地方用）。
 - 左邊日期列按右鍵：在這天新增、整天合成一個 .md 匯出、清掉整天。滑過日期列才會出現「＋」。
 - 筆記列標題前的 ☆：點一下加入我的最愛（最上面多一組「★ 我的最愛」，點那裡的列也會開那張），再點一次取消。
+- 第一次開會有五頁的使用教學，看一次就不再出現；⚙ 設定 → 更新 → 「再看一次使用教學」可以再看。
+- 更新：程式開啟幾秒後會去 GitHub 看有沒有新版（只讀版本號，不會傳任何東西出去）。有新版會跳提醒：
+  「下載新版」開瀏覽器下載 zip，解開後把 Notion.exe 換掉就好（筆記、設定都不會動）；「這一版不再提醒」；
+  勾「以後都不提醒」或 ⚙ 設定 → 更新 的開關可以關掉提醒。Notion.bat 裡 set NOTE_UPDATE_CHECK=0 可完全不查。
 - 右下角：N 行 · N 字，和「已儲存 時間」（幾秒後自己淡掉）。
 - ⚙ 設定：語言、開機自動啟動、一般／跟隨系統／暗黑模式、字體大小、最上層、存檔位置、匯入匯出、垃圾桶與「還原上一次刪除」、加密開關、紀錄檔位置。
 
@@ -83,6 +87,7 @@ language in the "Language" row; the window switches instantly.
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dest", help="額外再複製一份 zip 到這個資料夾（例如桌面）")
+    ap.add_argument("--publish", action="store_true", help="上傳到 GitHub Releases（要裝 gh 並登入；沒裝就印手動步驟）。程式啟動時會查這裡有沒有新版")
     ns = ap.parse_args()
 
     exe = ROOT / "dist" / f"{APP_NAME}.exe"
@@ -122,6 +127,16 @@ def main() -> int:
         dest = Path(ns.dest) / Path(zip_path).name
         shutil.copy2(zip_path, dest)
         print("已複製到：", dest)
+    if ns.publish:
+        tag = f"v{__version__}"
+        from personalnote import update
+        if shutil.which("gh"):
+            r = subprocess.run(["gh", "release", "create", tag, zip_path, "--repo", update.REPO,
+                                "--title", f"{APP_NAME} {__version__}", "--notes", f"{APP_NAME} {__version__}（見 README）"], cwd=str(ROOT))
+            print("已發布到 GitHub Releases：", update.PAGE_URL if r.returncode == 0 else "失敗（看上面 gh 的訊息）")
+            return r.returncode
+        print(f"沒裝 GitHub CLI（gh）。手動發布：到 https://github.com/{update.REPO}/releases → Draft a new release → "
+              f"tag 填 {tag} → 把 {zip_path} 拖上去 → Publish。發布後程式啟動時就會查到新版。")
     return 0
 
 
